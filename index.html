@@ -100,7 +100,7 @@ body.ui-hidden #hud,body.ui-hidden #feed,body.ui-hidden #controls,body.ui-hidden
 body.ui-hidden #showUI{display:block}
 @media(max-width:640px){.charBtn{min-width:110px;padding:8px 10px}.charBtn .name{font-size:11px}#playerStats{width:180px}#rightHud{min-width:150px}#feed{width:200px}}
 #coverage{position:absolute;z-index:4;bottom:120px;left:12px;width:min(32vw,320px);display:grid;grid-template-columns:1fr 1fr;gap:3px;color:white}#coverage button{position:relative;background:#171829;padding:0;border:1px solid #48556b;cursor:pointer}#coverage canvas{display:block;width:100%;height:auto;filter:contrast(1.06)}#coverage span,#coverageState{font:11px system-ui;background:#101326e8;color:white;padding:2px 4px}#coverage span{position:absolute;bottom:0;left:0}#coverageState{grid-column:1/-1}body.ui-hidden #coverage,body:not(.playing) #coverage{display:none}@media(max-height:600px){#coverage{bottom:70px;width:160px}}
-#mapDialog{max-width:min(640px,90vw);max-height:75vh;overflow:auto;color:white;background:#181626;border:1px solid #b75691;border-radius:12px;padding:20px}#mapDialog::backdrop{background:#080512aa}#mapDialog input,#mapDialog select,#mapDialog button{padding:.5em;margin:.2em}#mapDialog a{color:#87dcff}#mapList{padding:0;list-style:none}#mapList li{display:flex;align-items:center;justify-content:space-between;gap:.7em;padding:.4em;border-bottom:1px solid #494355}#mapClose{float:right}</style>
+#mapDialog{max-width:min(640px,90vw);max-height:75vh;overflow:auto;color:white;background:#181626;border:1px solid #b75691;border-radius:12px;padding:20px}#mapDialog::backdrop{background:#080512aa}#mapDialog input,#mapDialog select,#mapDialog button{padding:.5em;margin:.2em}#mapDialog a{color:#87dcff}#mapList{padding:0;list-style:none}#mapList li{display:flex;align-items:center;justify-content:space-between;gap:.7em;padding:.4em;border-bottom:1px solid #494355}#mapClose{float:right}#stage::after{content:"";position:absolute;inset:0;pointer-events:none;display:none}body.realRain #stage::after{display:block;opacity:.27;background-image:repeating-linear-gradient(106deg,transparent 0 17px,#bad4e6 18px,transparent 19px 68px);background-size:89px 110px;animation:rainDrift .55s linear infinite}@keyframes rainDrift{to{background-position:-25px 110px}}@media(prefers-reduced-motion:reduce){body.realRain #stage::after{animation:none}}</style>
 </head>
 <body>
 <div id="stage"></div><aside id="coverage" aria-label="Câmaras em direto"><output id="coverageState"></output></aside>
@@ -117,14 +117,14 @@ body.ui-hidden #showUI{display:block}
 <div id="damageNum"></div>
 <div id="interact"></div>
 <div id="notice"></div>
-<div id="city23">LEONIDA EM DIRETO · <span id="weather23">DIA · CÉU LIMPO</span></div>
+<div id="city23">LEONIDA EM DIRETO · <span id="weather23">A obter hora e meteorologia…</span></div>
 
 <dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição observada" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
   <button id="pause">⏸ PAUSA</button>
   <button class="primary" id="camera">🎥 CÂMARA</button>
   <button id="speed">⏩ 1×</button>
   <button id="audio">🔇 SOM</button>
-  <button id="dayNight">🌙 NOITE</button>
+  <a href="https://open-meteo.com/" target="_blank" rel="noopener" style="color:#bddef2;align-self:center">Open-Meteo</a>
   <button class="quality ultra" id="qualityBtn">⚙️ ULTRA</button>
   <button id="hideUI">👁 OCULTAR UI (M)</button>
   <button id="reset">↻ REINICIAR</button>
@@ -1642,6 +1642,8 @@ function drawCityMap(ctx,w,h,focus,zoom){
   for(const v of G.vehicles){const p=v.group.position;ctx.save();ctx.translate(p.x,p.z);ctx.rotate(-v.group.rotation.y);ctx.fillStyle='#f0f0ec';ctx.fillRect(-1.4,-2.6,2.8,5.2);ctx.restore();}
   for(const p of G.policeCars)dot(p,2.6,'#45baff');
   for(const person of residents)dot(person,2.2,'#ff638c');
+  if(conditions.season==='Natal'){for(const p of townPlots)if(p.kind==='Jardim'){ctx.fillStyle='#ffe09a';ctx.fillRect(p.x-3,p.z,6,.7);}}
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='rgba(10,18,39,'+(.48*G.dayNightValue+.12*conditions.cloud)+')';ctx.fillRect(0,0,w,h);
 }
 function renderMapBroadcast(){
   const canvas=G.mapCanvas,w=innerWidth,h=innerHeight;
@@ -2021,8 +2023,76 @@ function startLivingCity(){
   G.keys={};recordOccurrence('Cidade em direto');
 }
 
+
+const miamiClock=new Intl.DateTimeFormat('pt-PT',{timeZone:'America/New_York',hourCycle:'h23',hour:'2-digit',minute:'2-digit',month:'2-digit',day:'2-digit'});
+const conditions={sample:null,lastMinute:-1,season:'',rain:false,cloud:0,decor:null};
+function solarNight(date){
+  const day=(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate())-Date.UTC(date.getUTCFullYear(),0,1))/86400000+1;
+  const minutes=date.getUTCHours()*60+date.getUTCMinutes(),a=2*Math.PI/365*(day-1+(minutes/60-12)/24);
+  const eq=229.18*(.000075+.001868*Math.cos(a)-.032077*Math.sin(a)-.014615*Math.cos(2*a)-.040849*Math.sin(2*a));
+  const decl=.006918-.399912*Math.cos(a)+.070257*Math.sin(a)-.006758*Math.cos(2*a)+.000907*Math.sin(2*a)-.002697*Math.cos(3*a)+.00148*Math.sin(3*a);
+  const lat=25.76*Math.PI/180,angle=(minutes+eq-4*80.19-720)*Math.PI/720;
+  const altitude=Math.asin(Math.sin(lat)*Math.sin(decl)+Math.cos(lat)*Math.cos(decl)*Math.cos(angle))*180/Math.PI;
+  return clamp((5-altitude)/11,0,1);
+}
+function calendarTheme(month,day){
+  if(month===12&&day===31 || month===1&&day===1)return 'Ano Novo';
+  if(month===12 || month===1&&day<=6)return 'Natal';
+  if(month===10&&day===31)return 'Halloween';
+  if(month===7&&day===4)return 'Dia da Independência';
+  return '';
+}
+function describeWeather(code){
+  if(code===0)return 'Céu limpo';
+  if(code<=3)return ['','Pouco nublado','Parcialmente nublado','Encoberto'][code];
+  if([45,48].includes(code))return 'Nevoeiro';
+  if(code>=95)return 'Trovoada';
+  if([71,73,75,77,85,86].includes(code))return 'Neve';
+  if(code>=80&&code<=82)return 'Aguaceiros';
+  if(code>=61&&code<=67)return 'Chuva';
+  if(code>=51&&code<=57)return 'Chuvisco';
+  return 'Condições variáveis';
+}
+async function fetchMiamiWeather(){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
+  try{
+    const url='https://api.open-meteo.com/v1/forecast?latitude=25.76&longitude=-80.19&current=temperature_2m,weather_code,cloud_cover,precipitation&timeformat=unixtime';
+    const response=await fetch(url,{signal:controller.signal,cache:'no-store'});
+    if(!response.ok)throw Error('weather');
+    const data=(await response.json()).current;
+    if(!data || !['time','temperature_2m','weather_code','cloud_cover','precipitation'].every(k=>Number.isFinite(data[k])))throw Error('weather');
+    conditions.sample=data;
+  }catch{}finally{clearTimeout(timer);conditions.lastMinute=-1;}
+}
+function syncMiami(now=Date.now()){
+  const minute=Math.floor(now/60000);if(conditions.lastMinute===minute)return;
+  conditions.lastMinute=minute;
+  const date=new Date(now),parts=Object.fromEntries(miamiClock.formatToParts(date).map(p=>[p.type,p.value]));
+  const season=calendarTheme(+parts.month,+parts.day);
+  conditions.season=season;
+  const data=conditions.sample,age=data?now/1000-data.time:Infinity,fresh=age>=-300&&age<=3600;
+  conditions.cloud=fresh?clamp(data.cloud_cover/100,0,1):0;
+  conditions.rain=fresh&&data.precipitation>0;
+  G.dayNightTarget=solarNight(date);
+  const weather=fresh?describeWeather(data.weather_code)+' · '+Math.round(data.temperature_2m)+' °C · dados '+miamiClock.formatToParts(new Date(data.time*1000)).filter(p=>['hour','minute'].includes(p.type)).map(p=>p.value).join(':'):'Meteorologia indisponível';
+  $('weather23').textContent='Miami '+parts.hour+':'+parts.minute+' · '+weather+(season?' · '+season:'');
+  document.body.classList.toggle('realRain',conditions.rain);
+  if(conditions.decor)conditions.decor.visible=season==='Natal';
+}
+function buildHolidayLights(){
+  const plots=townPlots.filter(p=>p.kind==='Jardim');
+  const lights=new THREE.InstancedMesh(new THREE.SphereGeometry(.28,5,4),new THREE.MeshBasicMaterial(),plots.length*7);
+  const obj=new THREE.Object3D();
+  plots.forEach((p,i)=>{for(let j=0;j<7;j++){
+    obj.position.set(p.x-3+j,3+.25*Math.abs(3-j),p.z);obj.updateMatrix();
+    lights.setMatrixAt(i*7+j,obj.matrix);lights.setColorAt(i*7+j,new THREE.Color(j%2?0xffdd88:0xff5850));
+  }});
+  lights.visible=false;G.scene.add(lights);conditions.decor=lights;
+}
+
 function animate(){
   requestAnimationFrame(animate);
+  syncMiami();
   const rawDt = Math.min(G.clock.getDelta(), 0.05);
   const dt = rawDt * G.timeScale;
 
@@ -2033,7 +2103,7 @@ function animate(){
     for(const pc of G.policeCars)travel(pc,dt,true);
     for(const car of G.vehicles)if(!car.occupied)travel(car,dt,true);
     for(const npc of G.npcs)liveCivil(npc,dt);
-    G.dayNightTarget=(1-Math.cos(G.elapsed*Math.PI/150))/2;
+
     updateHelicopters(G.elapsed);
     const oldSubject=observer.subject;
     if(G.elapsed>=observer.next){
@@ -2072,7 +2142,7 @@ function animate(){
     G.scene.fog.color.copy(fog);
     G.sun.intensity = 1.2 * (1 - dn*0.92) + 0.1;
     G.hemi.intensity = 0.8 * (1 - dn*0.75) + 0.1;
-    $('weather23').textContent = dn > 0.7 ? 'NOITE · CÉU LIMPO' : dn > 0.3 ? 'GOLDEN HOUR' : 'DIA · CÉU LIMPO';
+    G.sun.intensity*=1-.55*conditions.cloud;
     G.envUpdateTimer -= dt;
     if(G.renderer && G.envUpdateTimer <= 0){ G.envUpdateTimer = 1.5; renderEnv(); }
   } else if(!G.started){
@@ -2102,11 +2172,7 @@ $('camera').addEventListener('click',()=>setCameraMode((coverage.mode+1)%coverag
 document.addEventListener('keydown',cameraControls);
 $('speed').addEventListener('click', () => { G.rate = G.rate===1?2:G.rate===2?4:1; $('speed').textContent = `⏩ ${G.rate}×`; });
 $('audio').addEventListener('click', () => { initAudio(); setSound(!G.noiseOn); });
-$('dayNight').addEventListener('click', () => {
-  G.dayNightTarget = G.dayNightTarget > 0.5 ? 0 : 1;
-  $('dayNight').textContent = G.dayNightTarget > 0.5 ? '☀️ DIA' : '🌙 NOITE';
-  blip(550, 0.2, 'sine', 0.2);
-});
+
 $('qualityBtn').addEventListener('click', () => { applyQuality(G.quality === 'ULTRA' ? 'ALTO' : 'ULTRA'); blip(720, 0.2, 'sine', 0.2); });
 $('hideUI').addEventListener('click', () => document.body.classList.toggle('ui-hidden'));
 $('showUI').addEventListener('click', () => document.body.classList.toggle('ui-hidden'));
@@ -2376,6 +2442,8 @@ buildLeonida();
 buildNeighbourhoods();
 createCoverage();
 startLivingCity();
+buildHolidayLights();syncMiami();G.dayNightValue=G.dayNightTarget;
+fetchMiamiWeather();setInterval(fetchMiamiWeather,15*60*1000);
 animate();
 </script>
 </body>
