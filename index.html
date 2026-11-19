@@ -1751,6 +1751,7 @@ function initAudio(){
   sirenLfo.connect(sirenLfoGain).connect(siren.frequency);
   siren.start(); sirenLfo.start();
   scheduleSiren();
+  addWeatherAudio();
 }
 function scheduleSiren(){
   if(!G.audioCtx || !G.sirenGain) return;
@@ -1991,6 +1992,28 @@ function driveResident(person,dt){
 }
 function liveResident(person,dt){
   if(person.car){driveResident(person,dt);return;}
+  if(['À procura de abrigo','A procurar abrigo','A abrigar-se'].includes(person.state)){
+    if(!conditions.rain){person.shelter=null;person.state='A caminhar';person.until=0;}
+    else {
+      if(!person.shelter){
+        const p=person.group.position;
+        person.shelter=townPlots.filter(q=>q.kind!=='Jardim').reduce((best,q)=>
+          !best||Math.hypot(q.x-p.x,q.z-p.z)<Math.hypot(best.x-p.x,best.z-p.z)?q:best,null);
+      }
+      if(person.shelter){
+        const p=person.group.position,q=person.shelter;
+        const dx=q.x-p.x,dz=q.z-p.z,dist=Math.hypot(dx,dz);
+        const stop=Math.max(3,q.radius+1);
+        if(dist>stop){
+          const step=Math.min(dist-stop,dt*person.walk.speed*1.25);
+          p.x+=dx/dist*step;p.z+=dz/dist*step;
+          person.group.rotation.y=Math.atan2(dx,dz);
+          person.state='A procurar abrigo';
+        }else{person.state='A abrigar-se';}
+      }
+      if(person.state==='A abrigar-se'||person.state==='A procurar abrigo')return;
+    }
+  }
   if(G.elapsed<person.until)return;
   if(person.state!=='A caminhar'){
     person.state='A caminhar';person.decide=G.elapsed+rand(2,6);
@@ -2032,7 +2055,7 @@ function startLivingCity(){
 
 
 const miamiClock=new Intl.DateTimeFormat('pt-PT',{timeZone:'America/New_York',hourCycle:'h23',hour:'2-digit',minute:'2-digit',month:'2-digit',day:'2-digit'});
-const conditions={sample:null,lastMinute:-1,season:'',rain:false,cloud:0,decor:null};
+const conditions={sample:null,lastMinute:-1,season:'',rain:false,cloud:0,decor:null,wetness:0,wind:0,thunder:false,weatherReady:false};
 function solarNight(date){
   const day=(Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate())-Date.UTC(date.getUTCFullYear(),0,1))/86400000+1;
   const minutes=date.getUTCHours()*60+date.getUTCMinutes(),a=2*Math.PI/365*(day-1+(minutes/60-12)/24);
@@ -2063,12 +2086,13 @@ function describeWeather(code){
 async function fetchMiamiWeather(){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
   try{
-    const url='https://api.open-meteo.com/v1/forecast?latitude=25.76&longitude=-80.19&current=temperature_2m,weather_code,cloud_cover,precipitation&timeformat=unixtime';
+    const url='https://api.open-meteo.com/v1/forecast?latitude=25.76&longitude=-80.19&current=temperature_2m,weather_code,cloud_cover,precipitation,wind_speed_10m&timeformat=unixtime';
     const response=await fetch(url,{signal:controller.signal,cache:'no-store'});
     if(!response.ok)throw Error('weather');
     const data=(await response.json()).current;
     if(!data || !['time','temperature_2m','weather_code','cloud_cover','precipitation'].every(k=>Number.isFinite(data[k])))throw Error('weather');
     conditions.sample=data;
+    conditions.weatherReady=true;
   }catch{}finally{clearTimeout(timer);conditions.lastMinute=-1;}
 }
 
@@ -2121,12 +2145,15 @@ function syncMiami(now=Date.now()){
   const season=calendarTheme(+parts.month,+parts.day);
   conditions.season=season;
   const data=conditions.sample,age=data?now/1000-data.time:Infinity,fresh=age>=-300&&age<=3600;
+  conditions.weatherReady=fresh;
   conditions.cloud=fresh?clamp(data.cloud_cover/100,0,1):0;
   conditions.rain=fresh&&(isLiquidWeather(data.weather_code)||(data.precipitation>0&&![71,73,75,77,85,86].includes(data.weather_code)));
   conditions.fog=fresh&&[45,48].includes(data.weather_code);
-  if(conditions.road){conditions.road.color.setHex(conditions.rain?0x324658:0x50565a);conditions.road.roughness=conditions.rain?.20:.93;}
+  conditions.wind=fresh?Math.max(0,data.wind_speed_10m||0):0;
+  conditions.thunder=fresh&&[95,96,99].includes(data.weather_code);
+
   for(const sky of [G.skyMat,G.envSkyMat])if(sky)sky.uniforms.cloudAmount.value=conditions.cloud;
-  G.scene.fog.density=conditions.fog?.018:conditions.rain?.005:.0018;
+
   G.dayNightTarget=solarNight(date);
   const weather=fresh?describeWeather(data.weather_code)+' · '+Math.round(data.temperature_2m)+' °C · dados '+miamiClock.formatToParts(new Date(data.time*1000)).filter(p=>['hour','minute'].includes(p.type)).map(p=>p.value).join(':'):'Meteorologia indisponível';
   $('weather23').textContent='Miami '+parts.hour+':'+parts.minute+' · '+weather+(season?' · '+season:'');
@@ -2144,19 +2171,117 @@ function buildHolidayLights(){
   lights.visible=false;G.scene.add(lights);conditions.decor=lights;
 }
 
+/* Ambiente autónomo: atualiza-se com tempo real, mesmo com a simulação em pausa. */
+function updateLiveEnvironment(dt){
+  const k=1-Math.exp(-dt*(conditions.rain?0.17:0.025));
+  conditions.wetness+=(Number(conditions.rain)-conditions.wetness)*k;
+  if(conditions.road){
+    conditions.road.color.setRGB(
+      .314-(.314-.17)*conditions.wetness,
+      .337-(.337-.24)*conditions.wetness,
+      .353-(.353-.32)*conditions.wetness
+    );
+    conditions.road.roughness=.93-.69*conditions.wetness;
+    conditions.road.metalness=.04+.20*conditions.wetness;
+  }
+  if(G.scene&&G.scene.fog)
+    G.scene.fog.density=conditions.fog?.018:.0018+conditions.cloud*.0015+conditions.wetness*.003;
+  G.dayNightValue+=(G.dayNightTarget-G.dayNightValue)*(1-Math.exp(-dt*.8));
+  const dn=G.dayNightValue,gh=Math.sin(dn*Math.PI)*.85;
+  if(G.skyMat&&G.sun){
+    G.skyMat.uniforms.uDayNight.value=dn;
+    G.skyMat.uniforms.uGoldenHour.value=gh;
+    const sunDir=new THREE.Vector3(.4,.75-dn*.72,.35).normalize();
+    G.skyMat.uniforms.uSunDirection.value.copy(sunDir);
+    if(G.envSkyMat){
+      G.envSkyMat.uniforms.uDayNight.value=dn;
+      G.envSkyMat.uniforms.uGoldenHour.value=gh;
+      G.envSkyMat.uniforms.uSunDirection.value.copy(sunDir);
+    }
+    G.sun.position.copy(sunDir.clone().multiplyScalar(150));
+  }
+  const fogDay=new THREE.Color(0xc8dce8),fogGolden=new THREE.Color(0xe8a878),fogNight=new THREE.Color(0x0a1a2a);
+  const fog=dn<.4?fogDay.lerp(fogGolden,dn/.4):fogGolden.lerp(fogNight,Math.min(1,(dn-.4)/.2));
+  if(G.scene&&G.scene.fog)G.scene.fog.color.copy(fog);
+  if(G.sun)G.sun.intensity=(1.2*(1-dn*.92)+.1)*(1-.55*conditions.cloud);
+  if(G.hemi)G.hemi.intensity=.8*(1-dn*.75)+.1;
+  if(conditions.thunder&&G.started&&!G.paused){
+    conditions.stormTimer=(conditions.stormTimer||0)-dt;
+    if(conditions.stormTimer<=0){
+      conditions.stormTimer=18+Math.random()*38;
+      conditions.flash=.85;
+      playStormThunder();
+    }
+  }else{conditions.stormTimer=0;conditions.flash=0;}
+  conditions.flash=Math.max(0,(conditions.flash||0)-dt*3);
+  if(G.sun)G.sun.intensity+=conditions.flash*2.5;
+  if(G.audioCtx){
+    const t=G.audioCtx.currentTime;
+    if(G.rainGain)G.rainGain.gain.setTargetAtTime(conditions.rain?.24:0,t,.7);
+    if(G.windGain)G.windGain.gain.setTargetAtTime(Math.min(.14,conditions.wind/250),t,1);
+    if(G.crowdGain)G.crowdGain.gain.setTargetAtTime(.30*(1-.55*conditions.wetness)*(1-.30*dn),t,2);
+  }
+}
+function playStormThunder(){
+  if(!G.audioCtx||!G.masterGain||!G.noiseOn||!conditions.thunder)return;
+  const ctx=G.audioCtx,now=ctx.currentTime;
+  const src=ctx.createBufferSource();src.buffer=makeNoiseBuffer(ctx,2.8);
+  const low=ctx.createBiquadFilter();low.type='lowpass';low.frequency.value=170;
+  const gain=ctx.createGain();gain.gain.setValueAtTime(.0001,now);
+  gain.gain.exponentialRampToValueAtTime(.33,now+.12);
+  gain.gain.exponentialRampToValueAtTime(.0001,now+2.8);
+  src.connect(low).connect(gain).connect(G.masterGain);
+  src.start(now);src.stop(now+2.81);
+}
+function weatherTravelFactor(){return 1-.28*conditions.wetness-(conditions.fog?.18:0);}
+function announceWeatherEvent(){
+  const state=conditions.thunder?'Trovoada':conditions.rain?'Chuva':conditions.fog?'Nevoeiro':'Tempo seco';
+  if(conditions.lastAnnounced===state)return;
+  conditions.lastAnnounced=state;
+  if(G.started&&typeof addFeed==='function')addFeed('METEO','Miami · '+state,false);
+}
+function updateWeatherCitizens(dt){
+  for(const person of residents){
+    if(person.car||G.elapsed<person.until||['A procurar abrigo','A abrigar-se'].includes(person.state))continue;
+    if(conditions.rain){
+      if(person.state==='A caminhar'&&Math.random()<dt*.035){
+        person.state='À procura de abrigo';
+        person.until=G.elapsed+3+Math.random()*6;
+      }
+    }else if(person.state==='À procura de abrigo'&&G.elapsed>=person.until){
+      person.state='A caminhar';
+    }
+  }
+}
+function addWeatherAudio(){
+  if(!G.audioCtx||G.rainGain)return;
+  const ctx=G.audioCtx,buffer=makeNoiseBuffer(ctx,5);
+  function layer(type,freq,gainName){
+    const src=ctx.createBufferSource();src.buffer=buffer;src.loop=true;
+    const filter=ctx.createBiquadFilter();filter.type=type;filter.frequency.value=freq;
+    const gain=ctx.createGain();gain.gain.value=0;
+    src.connect(filter).connect(gain).connect(G.masterGain);src.start();
+    G[gainName]=gain;
+  }
+  layer('lowpass',1250,'rainGain');
+  layer('lowpass',230,'windGain');
+}
 function animate(){
   requestAnimationFrame(animate);
   syncMiami();
   const rawDt = Math.min(G.clock.getDelta(), 0.05);
   const dt = rawDt * G.timeScale;
+  updateLiveEnvironment(rawDt);
+  announceWeatherEvent();
 
   if(G.started && !G.paused){
     G.elapsed += dt;
 
-    for(const person of residents)liveResident(person,dt);
-    for(const pc of G.policeCars)travel(pc,dt,true);
-    for(const car of G.vehicles)if(!car.occupied)travel(car,dt,true);
-    for(const npc of G.npcs)liveCivil(npc,dt);
+    updateWeatherCitizens(dt);
+    for(const person of residents)liveResident(person,dt*weatherTravelFactor());
+    for(const pc of G.policeCars)travel(pc,dt*weatherTravelFactor(),true);
+    for(const car of G.vehicles)if(!car.occupied)travel(car,dt*weatherTravelFactor(),true);
+    for(const npc of G.npcs)liveCivil(npc,dt*(conditions.rain?.72:1));
 
     updateHelicopters(G.elapsed);
     const oldSubject=observer.subject;
@@ -2170,33 +2295,6 @@ function animate(){
     updateCoverage(rawDt);
     $('coverageState').textContent=(subject.name|| (subject===G.policeCars[0]?'Patrulha':'Peão'))+' · '+(subject.state||'Em circulação');
     updateRoute();
-    G.dayNightValue += (G.dayNightTarget - G.dayNightValue) * Math.min(1, dt*0.8);
-    const dn = G.dayNightValue;
-    const gh = Math.sin(dn * Math.PI) * 0.85;
-    if(G.skyMat){
-      G.skyMat.uniforms.uDayNight.value = dn;
-      G.skyMat.uniforms.uGoldenHour.value = gh;
-      const sunY = 0.75 - dn*0.72;
-      const sunDir = new THREE.Vector3(0.4, sunY, 0.35).normalize();
-      G.skyMat.uniforms.uSunDirection.value.copy(sunDir);
-      if(G.envSkyMat){
-        G.envSkyMat.uniforms.uDayNight.value = dn;
-        G.envSkyMat.uniforms.uGoldenHour.value = gh;
-        G.envSkyMat.uniforms.uSunDirection.value.copy(sunDir);
-      }
-      G.sun.position.copy(sunDir.clone().multiplyScalar(150));
-    }
-    const fogDay = new THREE.Color(0xc8dce8);
-    const fogGolden = new THREE.Color(0xe8a878);
-    const fogNight = new THREE.Color(0x0a1a2a);
-    let fog;
-    if(dn < 0.4) fog = fogDay.clone().lerp(fogGolden, dn/0.4);
-    else if(dn < 0.6) fog = fogGolden.clone().lerp(fogNight, (dn-0.4)/0.2);
-    else fog = fogNight;
-    G.scene.fog.color.copy(fog);
-    G.sun.intensity = 1.2 * (1 - dn*0.92) + 0.1;
-    G.hemi.intensity = 0.8 * (1 - dn*0.75) + 0.1;
-    G.sun.intensity*=1-.55*conditions.cloud;
     G.envUpdateTimer -= dt;
     if(G.renderer && G.envUpdateTimer <= 0){ G.envUpdateTimer = 1.5; renderEnv(); }
   } else if(!G.started){
@@ -2206,6 +2304,10 @@ function animate(){
     for(const h of G.helicopters) h.rotor.rotation.y += rawDt*10;
   }
 
+  if((!G.started||G.paused)&&G.renderer){
+    G.envUpdateTimer-=rawDt;
+    if(G.envUpdateTimer<=0){G.envUpdateTimer=1.5;renderEnv();}
+  }
   renderCoverage();
 }
 

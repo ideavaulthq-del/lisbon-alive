@@ -1,9 +1,8 @@
-# LISBON ALIVE™
-
-Conceito e especificação de câmaras dinâmicas em tempo real para o jogo, cobrindo várias frentes da cidade e diferentes estados de jogabilidade.
-
-## Âmbito Principal
-- **Cobertura multi-zona:** Múltiplos ângulos e vistas comutáveis em diferentes pontos da cidade durante ocorrências ativas (roubos, assaltos, perseguições e conflitos urbanos).
-- **Veículos em andamento:** Câmaras interiores e dinâmicas com prevenção de *clipping*, resolução de oclusão pela geometria da viatura, vibração reativa, inércia e amortecimento (*camera damping* / *spring arm*) ajustado à velocidade, curvas bruscas e colisões.
-- **Interiores e saques em lojas:** Vistas no interior de estabelecimentos comerciais, bancos e lojas durante saques, com gestão de oclusão de paredes, tetos e mobiliário (*visibility/occlusion culling*, *cutaway* dinâmico ou *fade/dither*), transições fluidas (*smooth blend*) e sincronização de estado em tempo real.
-- **Jogabilidade e comportamentos:** Acompanhamento não só do cenário mas também das ações, decisões e omissões dos jogadores e NPCs (o que fazem ou deixam de fazer em cada momento, furtividade, troca de armas/itens, condução, entrada/saída de espaços, reações de polícia/civis e estados de alerta ou evasão).
+# LEONIDA 360° V3
+Atualização funcional sem alterações ao HTML/CSS de apresentação.
+- Habitantes deslocam-se autonomamente em direção à periferia do edifício mais próximo quando chove e permanecem abrigados até terminar.
+- Correção da redução duplicada da velocidade de veículos conduzidos por habitantes.
+- Mudanças meteorológicas anunciadas no feed já existente.
+- Preserva chuva, vento, trovão, iluminação solar e piso molhado da V2.
+Limitações: os peões movem-se diretamente em direção ao edifício, sem pathfinding de obstáculos nem interiores reais. Não foram adicionados faróis 3D, nem câmaras novas; continuam as câmaras existentes.
+Validação: verificação sintática de JavaScript, não teste gráfico num browser. Não publicado.
