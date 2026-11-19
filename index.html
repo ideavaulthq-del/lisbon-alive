@@ -99,10 +99,11 @@ body.ui-hidden #hud,body.ui-hidden #feed,body.ui-hidden #controls,body.ui-hidden
 #showUI:hover{opacity:1}
 body.ui-hidden #showUI{display:block}
 @media(max-width:640px){.charBtn{min-width:110px;padding:8px 10px}.charBtn .name{font-size:11px}#playerStats{width:180px}#rightHud{min-width:150px}#feed{width:200px}}
+#coverage{position:absolute;z-index:4;bottom:120px;left:12px;width:min(32vw,320px);display:grid;grid-template-columns:1fr 1fr;gap:3px;color:white}#coverage button{position:relative;background:#171829;padding:0;border:1px solid #48556b;cursor:pointer}#coverage canvas{display:block;width:100%;height:auto;filter:contrast(1.06)}#coverage span,#coverageState{font:11px system-ui;background:#101326e8;color:white;padding:2px 4px}#coverage span{position:absolute;bottom:0;left:0}#coverageState{grid-column:1/-1}body.ui-hidden #coverage,body:not(.playing) #coverage{display:none}@media(max-height:600px){#coverage{bottom:70px;width:160px}}
 </style>
 </head>
 <body>
-<div id="stage"></div>
+<div id="stage"></div><aside id="coverage" aria-label="Câmaras em direto"><output id="coverageState"></output></aside>
 
 <div id="hud">
   <div class="hudbox" id="playerStats">
@@ -971,6 +972,7 @@ function spawnEnemiesAt(x, z, count){
 function setupInput(){
   document.addEventListener('keydown', e => {
     G.keys[e.key.toLowerCase()] = true;
+    if(!G.started) return;
     if(e.key === 'Tab'){ e.preventDefault(); switchCharacter(); }
     if(e.key === 'f' || e.key === 'F') toggleFocus();
     if(e.key === 'e' || e.key === 'E') toggleVehicle();
@@ -983,7 +985,7 @@ function setupInput(){
   });
   document.addEventListener('keyup', e => { G.keys[e.key.toLowerCase()] = false; });
   document.addEventListener('mousedown', e => {
-    if(!G.started) return;
+    if(!G.started || G.paused || e.target!==G.renderer.domElement) return;
     if(e.button === 0){ G.mouseDown = true; attack(); }
     if(e.button === 2) G.aiming = true;
   });
@@ -1019,8 +1021,10 @@ function updatePlayerMovement(dt){
     v.group.position.z += Math.cos(v.angle) * v.speed * dt;
     // Projeção lateral da carroçaria, incluindo rodas e faróis.
     const margin = 1.35 * Math.abs(Math.cos(v.angle)) + 2.45 * Math.abs(Math.sin(v.angle));
+    const beforeX=v.group.position.x, beforeZ=v.group.position.z;
     v.group.position.x = clamp(v.group.position.x, ROAD.centerX - ROAD.laneWidth + margin, ROAD.centerX + ROAD.laneWidth - margin);
     v.group.position.z = clamp(v.group.position.z, ROAD.zMin, ROAD.zMax);
+    if(Math.abs(beforeX-v.group.position.x)+Math.abs(beforeZ-v.group.position.z)>.015){v.cameraImpact=Math.min(1,Math.abs(v.speed)/15);v.speed*=Math.exp(-4*dt);}
     G.player.position.copy(v.group.position);
     G.player.position.y = 1.5;
     G.player.rotation.y = v.angle;
@@ -1030,7 +1034,7 @@ function updatePlayerMovement(dt){
   const runMul = G.keys['shift'] && G.stamina > 0 ? 1.8 : 1;
   if(G.keys['shift'] && G.stamina > 0 && (G.keys['w']||G.keys['a']||G.keys['s']||G.keys['d'])) G.stamina = Math.max(0, G.stamina - 15*dt);
   else G.stamina = Math.min(G.maxStamina, G.stamina + 10*dt);
-  const speed = 7 * cfg.speed * runMul;
+  const speed = (G.keys.control ? 3 : 7) * cfg.speed * runMul;
   const fw = new THREE.Vector3(Math.sin(G.camYaw), 0, Math.cos(G.camYaw));
   const rt = new THREE.Vector3(Math.cos(G.camYaw), 0, -Math.sin(G.camYaw));
   const mv = new THREE.Vector3();
@@ -1063,6 +1067,7 @@ function updatePlayerMovement(dt){
 function attack(){
   if(!G.started || !G.player || G.attackCooldown > 0) return;
   const cfg = G.player.userData.cfg;
+  recordOccurrence(G.weapon ? 'Disparo' : 'Confronto');
   G.attackCooldown = 0.4 / cfg.speed;
   if(G.weapon === 0){
     const ppos = G.player.position;
@@ -1526,51 +1531,177 @@ function updateWater(t){
 }
 
 /* ============ CÂMARA ============ */
-function updateCamera(dt){
-  if(!G.autoCamera || G.aiming || G.currentVehicle){
-    if(G.currentVehicle){
-      const v = G.currentVehicle;
-      const behind = new THREE.Vector3(-Math.sin(v.angle), 0, -Math.cos(v.angle)).multiplyScalar(10);
-      const target = v.group.position.clone().add(behind).add(new THREE.Vector3(0, 5, 0));
-      G.camera.position.lerp(target, 0.1);
-      G.camera.lookAt(v.group.position.clone().add(new THREE.Vector3(0, 2, 0)));
-      return;
+const coverage = {
+  mode: 0, selected: 0, feeds: [], nextFeed: 0, lastFeed: -1,
+  look: new THREE.Vector3(), lastPos: new THREE.Vector3(), 
+  previousCar: null, speed: 0, angle: 0, sway: 0, surge: 0, shock: 0,
+  room: null, sites: [], action: '', lastEvent: '', eventUntil: 0,
+  ray: new THREE.Raycaster(), solids: [], 
+  names: ['Auto','Ombro','Cabina','Perseguição','Aérea','Monitor']
+};
+function recordOccurrence(label){
+  coverage.lastEvent = label;
+  coverage.eventUntil = G.elapsed + 6;
+}
+function createCoverage(){
+  coverage.solids = G.buildings.map(b => b.mesh);
+  for(const [name,x,z] of [['Banco',-20,-145],['Joalharia',-20,-65],['Loja',-20,150]]){
+    const group = new THREE.Group();
+    group.position.set(x,0,z);
+    const walls = [], detail = new THREE.Group();
+    function block(w,h,d,px,py,pz,color,parent=group){
+      const obj = mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color}), px,py,pz);
+      parent.add(obj);
+      return obj;
     }
-    const pitch = G.camPitch, yaw = G.camYaw;
-    const dist = G.aiming ? 3.5 : 7;
-    const height = G.aiming ? 1.5 : 2.5;
-    const offset = new THREE.Vector3(
-      -Math.sin(yaw)*Math.cos(pitch)*dist,
-      height + Math.sin(pitch)*dist,
-      -Math.cos(yaw)*Math.cos(pitch)*dist
-    );
-    const target = G.player.position.clone().add(offset);
-    G.camera.position.lerp(target, 0.2);
-    const look = G.player.position.clone().add(new THREE.Vector3(0, 1.5, 0));
-    if(G.cameraShake > 0){
-      look.x += rand(-G.cameraShake, G.cameraShake);
-      look.y += rand(-G.cameraShake, G.cameraShake);
-      G.cameraShake *= 0.9;
+    block(12,.12,10,0,.06,0,0xb6ada5);
+    for(const spec of [[.25,4,10,6,2,0],[12,4,.25,0,2,-5],[12,4,.25,0,2,5],[.25,4,3.4,-6,2,-3.3],[.25,4,3.4,-6,2,3.3],[12,.25,10,0,4,0]]){
+      walls.push(block(...spec,0xbac6cf));
     }
-    G.camera.lookAt(look);
-    return;
+    const counter = block(1,1.1,4,2,.55,0,0x694936);
+    group.add(detail);
+    for(const wall of [...walls.slice(0,-1),counter]){
+      const dims=wall.geometry.parameters;
+      G.buildings.push({mesh:{position:new THREE.Vector3(x+wall.position.x,wall.position.y,z+wall.position.z)},w:dims.width,d:dims.depth,h:dims.height});
+    }
+    for(const dz of [-1,0,1]) block(.35,.3,.45,2,1.25,dz,0xd9c383,detail);
+    const light = new THREE.PointLight(0xffdcaa,.7,13);
+    light.position.set(0,3,0); detail.add(light);
+    G.scene.add(group);
+    coverage.sites.push({name,x,z,group,walls,counter,detail,taken:false});
   }
-  G.camTimer += dt;
-  if(G.camTimer > 7){ G.camTimer = 0; G.camMode = (G.camMode + 1) % 9; }
-  const t = G.elapsed;
-  const f = new THREE.Vector3(0, 4, 0);
-  switch(G.camMode){
-    case 0: G.camera.position.set(Math.sin(t*0.1)*50, 50, Math.cos(t*0.1)*70); f.set(0, 4, 0); break;
-    case 1: G.camera.position.set(-55, 8, 30); f.set(-55, 3, 0); break;
-    case 2: G.camera.position.set(-90, 6, 50); f.set(-55, 2, 0); break;
-    case 3: G.camera.position.set(150, 80, 100); f.set(100, 40, 0); break;
-    case 4: G.camera.position.set(-30, 12, 70); f.set(-15, 6, 50); break;
-    case 5: G.camera.position.set(-220, 30, 30); f.set(-250, 8, 0); break;
-    case 6: G.camera.position.set(0, 25, 80); f.set(0, 6, 0); break;
-    case 7: G.camera.position.copy(G.player.position).add(new THREE.Vector3(10, 4, 10)); f.copy(G.player.position); break;
-    case 8: G.camera.position.set(Math.sin(t*0.08)*60, 55, Math.cos(t*0.08)*60); f.set(0, 4, 0); break;
+  const panel = $('coverage');
+  for(const name of ['Jogador','Polícia','Civis','Ocorrência']){
+    const btn=document.createElement('button'), canvas=document.createElement('canvas'), label=document.createElement('span');
+    canvas.width=192; canvas.height=108; label.textContent=name;
+    btn.append(canvas,label); panel.append(btn);
+    const index=coverage.feeds.length;
+    btn.onclick=()=>{ coverage.selected=index; setCameraMode(5); };
+    coverage.feeds.push({canvas,ctx:canvas.getContext('2d'),camera:new THREE.PerspectiveCamera(60,16/9,.1,1200),label});
   }
-  G.camera.lookAt(f);
+}
+function setCameraMode(mode){
+  coverage.mode=mode;
+  $('camera').textContent='🎥 '+coverage.names[mode];
+}
+function cameraControls(e){
+  if(!G.started || G.paused || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.code==='KeyC') setCameraMode((coverage.mode+1)%coverage.names.length);
+  if(e.code==='KeyR' && coverage.room && !coverage.room.taken && G.player.position.distanceTo(new THREE.Vector3(coverage.room.x+2,0,coverage.room.z))<3){
+    coverage.room.taken=true;
+    G.wanted=Math.min(5,G.wanted+1);
+    recordOccurrence(coverage.room.name==='Banco'?'Assalto ao banco':'Pilhagem · '+coverage.room.name);
+    addFeed('OCORRÊNCIA',coverage.lastEvent,true);
+  }
+}
+function feedPose(index){
+  const player=G.player.position;
+  let subject=player, dx=8, dy=6, dz=9, title='Jogador';
+  if(index===1){
+    const police=G.policeCars[0]; subject=police?police.group.position:new THREE.Vector3(ROAD.centerX,0,100);
+    dx=12;dy=9;dz=-12;title=police?'Polícia · perseguição':'Avenida norte';
+  } else if(index===2){
+    let nearest=null, best=Infinity;
+    for(const npc of G.npcs){
+      const d=npc.group.position.distanceToSquared(player);
+      if(d<best){nearest=npc;best=d;}
+    }
+    if(nearest) subject=nearest.group.position;
+    dx=-6;dy=3;dz=7;title=nearest?.filming?'Civil · a filmar':nearest?.state==='crossing'?'Civil · a atravessar':'Passeio';
+  } else if(index===3){
+    if(coverage.room){
+      const s=coverage.room;
+      return {eye:new THREE.Vector3(s.x+4,3.2,s.z+4),look:player.clone().add(new THREE.Vector3(0,1,0)),title:s.name};
+    }
+    const enemy=G.enemies.find(e=>e.alive && e.group.position.distanceToSquared(player)<625);
+    subject=enemy?enemy.group.position:G.currentVehicle?player:G.objectiveTarget?new THREE.Vector3(G.objectiveTarget.x,0,G.objectiveTarget.z):new THREE.Vector3(ROAD.centerX,0,-100);
+    dx=-14;dy=13;dz=-10;title=enemy?'Conflito':G.currentVehicle?'Viatura':G.objectiveTarget?'Objetivo':'Avenida sul';
+  }
+  return {eye:subject.clone().add(new THREE.Vector3(dx,dy,dz)),look:subject.clone().add(new THREE.Vector3(0,1.2,0)),title};
+}
+function updateCoverage(dt){
+  const p=G.player.position, v=G.currentVehicle, s=coverage;
+  const oldRoom=s.room;
+  s.room=s.sites.find(r=>Math.abs(p.x-r.x)<5.9 && Math.abs(p.z-r.z)<4.9)||null;
+  if(oldRoom!==s.room) recordOccurrence(s.room?'Entrada · '+s.room.name:'Saída · '+oldRoom.name);
+  if(s.previousCar!==v){
+    recordOccurrence(v?'Roubo de veículo':'Saída da viatura');
+    s.speed=v?.speed||0;s.angle=v?.angle||0;s.surge=s.sway=s.shock=0;
+  }
+  if(s.weapon!==undefined && s.weapon!==G.weapon) recordOccurrence('Troca de arma');
+  s.weapon=G.weapon;
+  s.previousCar=v;
+  const move=p.distanceTo(s.lastPos);
+  s.lastPos.copy(p);
+  s.action=v?'A conduzir':G.attackCooldown>0?'Em ataque':G.aiming?'A apontar':G.keys.control && move>.001?'Em furtividade':move>.003?'Em movimento':'Parado';
+  const event=G.elapsed<s.eventUntil?s.lastEvent:G.policeCars.length?'Perseguição':G.attackCooldown>0?'Conflito':G.missionRunning?G.currentMission.name:'Patrulha';
+  $('coverageState').textContent=[event,s.action,['Desarmado','Pistola','Espingarda'][G.weapon],s.room?.name, G.missionRunning ? G.missionStats?.approach : null, s.room&&!s.room.taken?'R junto ao balcão':null].filter(Boolean).join(' · ');
+  for(const site of s.sites){
+    const near=Math.hypot(p.x-site.x,p.z-site.z)<75;
+    if(near && !site.detail.parent) site.group.add(site.detail);
+    if(!near && site.detail.parent) site.group.remove(site.detail);
+  }
+  let yaw=v?v.angle:G.camYaw;
+  let mode=s.mode===0?(v?3:s.room?5:1):s.mode;
+  if(!v && (mode===2 || mode===3)) mode=1;
+  const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+  const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+  let look=p.clone();look.y=v?v.group.position.y+1.35:p.y+1.4;
+  let eye=look.clone();
+  const damping=1-Math.exp(-dt*9);
+  if(v){
+    const interval=Math.max(.001,dt*G.timeScale);
+    s.surge=lerpCamera(s.surge,clamp((v.speed-s.speed)/interval,-24,24),damping);
+    s.sway=lerpCamera(s.sway,clamp((yaw-s.angle)*v.speed/interval,-35,35),damping);
+    s.shock=Math.max(s.shock*Math.exp(-12*dt),v.cameraImpact||0);v.cameraImpact=0;
+    s.speed=v.speed;s.angle=yaw;
+  }
+  if(mode===5){const pose=feedPose(s.mode===0?3:s.selected);eye=pose.eye;look=pose.look;}
+  else if(mode===4) eye.add(new THREE.Vector3(14,21,13));
+  else if(mode===2){
+    eye.addScaledVector(forward,.48-s.surge*.006).addScaledVector(right,-.36-s.sway*.004);
+    eye.y+=.18+Math.sin(G.elapsed*35)*(Math.abs(v.speed)*.0005+s.shock*.08);
+    look.copy(eye).addScaledVector(forward,12);
+  } else if(mode===3){
+    eye.addScaledVector(forward,-7-Math.abs(v.speed)*.12).addScaledVector(right,-s.sway*.04);
+    eye.y+=2.7+s.surge*.025+s.shock*.3;
+  } else {
+    const distance=G.aiming?3:6;
+    eye.addScaledVector(forward,-Math.cos(G.camPitch)*distance);
+    eye.y+=.9+Math.sin(G.camPitch)*distance;
+  }
+  G.camera.position.lerp(eye,1-Math.exp(-dt*(mode===2?30:7)));
+  s.look.lerp(look,damping); G.camera.lookAt(s.look);
+  s.cockpit=mode===2;
+}
+function lerpCamera(a,b,t){return a+(b-a)*t;}
+function drawCoverageView(cam,look,cockpit){
+  const hidden=[];
+  function hide(obj){if(obj.visible){obj.visible=false;hidden.push(obj);}}
+  if(cockpit && G.currentVehicle){hide(G.player);hide(G.currentVehicle.group.children[1]);}
+  const delta=look.clone().sub(cam.position), distance=delta.length();
+  if(distance>.01){
+    coverage.ray.set(cam.position,delta.normalize());coverage.ray.far=distance;
+    const targets=coverage.solids.slice();
+    for(const site of coverage.sites) targets.push(...site.walls,site.counter);
+    for(const hit of coverage.ray.intersectObjects(targets,false)) hide(hit.object);
+  }
+  try{G.renderer.render(G.scene,cam);}finally{for(const obj of hidden)obj.visible=true;}
+}
+function renderCoverage(){
+  const s=coverage,r=G.renderer;
+  if(!G.started || !G.player){r.render(G.scene,G.camera);return;}
+  if(!G.paused && G.elapsed-s.lastFeed>=.04 && !document.body.classList.contains('ui-hidden')){
+    const i=s.nextFeed++%s.feeds.length, f=s.feeds[i], pose=feedPose(i);
+    f.camera.position.copy(pose.eye);f.camera.lookAt(pose.look);
+    const ratio=r.getPixelRatio(), w=Math.min(192,r.domElement.width), h=Math.min(108,r.domElement.height);
+    r.setViewport(0,0,w/ratio,h/ratio);r.setScissor(0,0,w/ratio,h/ratio);r.setScissorTest(true);
+    drawCoverageView(f.camera,pose.look,false);
+    f.ctx.drawImage(r.domElement,0,r.domElement.height-h,w,h,0,0,192,108);
+    f.label.textContent=pose.title;s.lastFeed=G.elapsed;
+    r.setScissorTest(false);r.setViewport(0,0,r.domElement.width/ratio,r.domElement.height/ratio);
+  }
+  drawCoverageView(G.camera,s.look,s.cockpit);
 }
 
 /* ============ FEED ============ */
@@ -1742,7 +1873,7 @@ function animate(){
     updateWildlife(G.elapsed);
     updateHelicopters(G.elapsed);
     updateWater(G.elapsed);
-    updateCamera(rawDt);
+    updateCoverage(rawDt);
     updateHUD();
     tickMission(dt);
     maybeSocialFeed(dt);
@@ -1806,7 +1937,7 @@ function animate(){
     for(const h of G.helicopters) h.rotor.rotation.y += rawDt*10;
   }
 
-  G.renderer.render(G.scene, G.camera);
+  renderCoverage();
 }
 
 /* ============ HANDLERS ============ */
@@ -1822,7 +1953,7 @@ document.querySelectorAll('.charBtn').forEach(btn => {
 });
 $('begin').addEventListener('click', () => {
   $('start').style.display = 'none';
-  G.started = true;
+  G.started = true; document.body.classList.add('playing');
   G.elapsed = 0;
   initAudio();
   setSound(true);
@@ -1835,7 +1966,8 @@ $('begin').addEventListener('click', () => {
   setTimeout(() => startMissionPrompt(0), 2000);
 });
 $('pause').addEventListener('click', () => { G.paused = !G.paused; $('pause').textContent = G.paused ? '▶ RETOMAR' : '⏸ PAUSA'; });
-$('camera').addEventListener('click', () => { G.autoCamera = !G.autoCamera; $('camera').textContent = G.autoCamera ? '🎥 CÂMARA AUTO' : '🎥 CÂMARA MANUAL'; });
+$('camera').addEventListener('click',()=>setCameraMode((coverage.mode+1)%coverage.names.length));
+document.addEventListener('keydown',cameraControls);
 $('speed').addEventListener('click', () => { G.rate = G.rate===1?2:G.rate===2?4:1; $('speed').textContent = `⏩ ${G.rate}×`; });
 $('audio').addEventListener('click', () => { initAudio(); setSound(!G.noiseOn); });
 $('dayNight').addEventListener('click', () => {
@@ -1866,6 +1998,7 @@ document.querySelectorAll('.approach-btns button').forEach(btn => {
 /* ============ INIT ============ */
 setupScene();
 buildViceCity();
+createCoverage();
 setupInput();
 animate();
 </script>
