@@ -105,25 +105,6 @@ body.ui-hidden #showUI{display:block}
 <body>
 <div id="stage"></div><aside id="coverage" aria-label="Câmaras em direto"><output id="coverageState"></output></aside>
 
-<div id="hud">
-  <div class="hudbox" id="playerStats">
-    <div id="playerName">JASON DUVAL</div>
-    <div id="playerRole">CAUTELOSO · PASSADO MILITAR · KEYS</div>
-    <div class="bar" id="hp"><i style="width:100%"></i><span>HP</span></div>
-    <div class="bar" id="st"><i style="width:100%"></i><span>STAMINA</span></div>
-    <div class="bar" id="fc"><i style="width:100%"></i><span>FOCUS</span></div>
-  </div>
-  <div class="hudbox" id="rightHud">
-    <div class="row"><span>💰 FINANÇAS (PARTILHADAS)</span><b id="money">$0</b></div>
-    <div class="row"><span>🚨 PROCURADO</span><b id="wanted">—</b></div>
-    <div class="row"><span>💗 RELAÇÃO</span><b id="relVal">50%</b></div>
-    <div id="relBar"><i style="width:50%"></i></div>
-    <div class="row" style="margin-top:6px"><span>💪 FORÇA</span><b id="str">1.0</b></div>
-    <div class="row"><span>🏃 CARDIO</span><b id="car">1.0</b></div>
-    <div class="row"><span>🎯 FOCO</span><b id="fcl">1.0</b></div>
-  </div>
-</div>
-
 <div id="mission">
   <div id="missionTitle">📋 MISSÃO</div>
   <div id="missionObj">—</div>
@@ -138,7 +119,7 @@ body.ui-hidden #showUI{display:block}
 <div id="notice"></div>
 <div id="city23">🌴 LEONIDA · <span id="weather23">DIA · CÉU LIMPO</span></div>
 
-<dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição do jogador" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="modeSwitch"></button><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
+<dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição observada" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
   <button id="pause">⏸ PAUSA</button>
   <button class="primary" id="camera">🎥 CÂMARA</button>
   <button id="speed">⏩ 1×</button>
@@ -190,45 +171,6 @@ body.ui-hidden #showUI{display:block}
     <div class="report-buttons">
       <button id="repRetry">↻ REPETIR</button>
       <button class="primary" id="repNext">▶ CONTINUAR</button>
-    </div>
-  </div>
-</div>
-
-<div id="start">
-  <div class="modal">
-    <div style="font-size:40px">🌴</div>
-    <h1>LEONIDA <b>ALIVE</b>™</h1>
-    <div class="sub">LEONIDA · 19 NOV 2026 · PS5 / XBOX SERIES X|S</div>
-    <p>Explora Vice City, atravessa a ponte para Vice Beach e segue pela estrada das Keys até Southwind. <b>Jason Duval</b> e <b>Lucia Caminos</b> acreditam ter um plano fácil — mas algo os coloca no centro de uma conspiração que se espalha por Leonida.</p>
-    <p style="font-size:11px;color:#888">Mapa gigante · trânsito autónomo · 60 NPCs com IA · vida selvagem · redes sociais · perseguições · finanças partilhadas</p>
-    <div class="section-title">ESCOLHE O PROTAGONISTA</div>
-    <div class="charSelect">
-      <div class="charBtn sel" data-char="jason">
-        <span class="name">JASON DUVAL</span>
-        <span class="desc">Cauteloso · Militar · Keys</span>
-      </div>
-      <div class="charBtn" data-char="lucia">
-        <span class="name">LUCIA CAMINOS</span>
-        <span class="desc">Impulsiva · Prisão · Liberty City</span>
-      </div>
-    </div>
-    <div class="section-title">RELAÇÃO ENTRE ELES</div>
-    <div class="charSelect">
-      <div class="charBtn relBtn sel" data-rel="platonic">
-        <span class="name">PLATÓNICA</span>
-        <span class="desc">Parceria de crime</span>
-      </div>
-      <div class="charBtn relBtn" data-rel="romantic">
-        <span class="name">ROMÂNTICA</span>
-        <span class="desc">Bonnie & Clyde</span>
-      </div>
-    </div>
-    <button id="begin">▶ INICIAR HISTÓRIA</button>
-    <div class="controls">
-      🎮 <b>WASD</b> mover · <b>RATO</b> olhar · <b>SHIFT</b> correr · <b>ESPAÇO</b> saltar<br>
-      🥊 <b>LMB</b> atacar · <b>RMB</b> apontar · <b>F</b> FOCUS (slow-mo)<br>
-      🎭 <b>TAB</b> trocar Jason/Lucia · <b>E</b> entrar/sair veículo · <b>G</b> ginásio<br>
-      🔫 <b>1/2/3</b> punho/pistola/shotgun · <b>M</b> esconder UI
     </div>
   </div>
 </div>
@@ -1562,7 +1504,7 @@ function createCoverage(){
     coverage.sites.push({name,x,z,group,walls,counter,detail,taken:false});
   }
   const panel = $('coverage');
-  for(const name of ['Jogador','Polícia','Civis','Ocorrência']){
+  for(const name of ['Habitante','Polícia','Civis','Ocorrência']){
     const btn=document.createElement('button'), canvas=document.createElement('canvas'), label=document.createElement('span');
     canvas.width=192; canvas.height=108; label.textContent=name;
     btn.append(canvas,label); panel.append(btn);
@@ -1586,11 +1528,11 @@ function cameraControls(e){
   }
 }
 function feedPose(index){
-  const player=G.player.position;
-  let subject=player, dx=8, dy=6, dz=9, title='Jogador';
+  const player=observer.subject.position;
+  let subject=player, dx=8, dy=6, dz=9, title='Habitante';
   if(index===1){
     const police=G.policeCars[0]; subject=police?police.group.position:new THREE.Vector3(ROAD.centerX,0,100);
-    dx=12;dy=9;dz=-12;title=police?'Polícia · perseguição':'Avenida norte';
+    dx=12;dy=9;dz=-12;title=police?'Polícia · patrulha':'Avenida norte';
   } else if(index===2){
     let nearest=null, best=Infinity;
     for(const npc of G.npcs){
@@ -1605,18 +1547,18 @@ function feedPose(index){
       return {eye:new THREE.Vector3(s.x+4,3.2,s.z+4),look:player.clone().add(new THREE.Vector3(0,1,0)),title:s.name};
     }
     const enemy=G.enemies.find(e=>e.alive && e.group.position.distanceToSquared(player)<625);
-    subject=enemy?enemy.group.position:G.currentVehicle?player:G.objectiveTarget?new THREE.Vector3(G.objectiveTarget.x,0,G.objectiveTarget.z):new THREE.Vector3(ROAD.centerX,0,-100);
-    dx=-14;dy=13;dz=-10;title=enemy?'Conflito':G.currentVehicle?'Viatura':G.objectiveTarget?'Objetivo':'Avenida sul';
+    subject=enemy?enemy.group.position:observer.car?player:G.objectiveTarget?new THREE.Vector3(G.objectiveTarget.x,0,G.objectiveTarget.z):new THREE.Vector3(ROAD.centerX,0,-100);
+    dx=-14;dy=13;dz=-10;title=enemy?'Conflito':observer.car?'Viatura':G.objectiveTarget?'Objetivo':'Avenida sul';
   }
   return {eye:subject.clone().add(new THREE.Vector3(dx,dy,dz)),look:subject.clone().add(new THREE.Vector3(0,1.2,0)),title};
 }
 function updateCoverage(dt){
-  const p=G.player.position, v=G.currentVehicle, s=coverage;
+  const p=observer.subject.position, v=observer.car, s=coverage;
   const oldRoom=s.room;
   s.room=s.sites.find(r=>Math.abs(p.x-r.x)<5.9 && Math.abs(p.z-r.z)<4.9)||null;
   if(oldRoom!==s.room) recordOccurrence(s.room?'Entrada · '+s.room.name:'Saída · '+oldRoom.name);
   if(s.previousCar!==v){
-    recordOccurrence(v?'Roubo de veículo':'Saída da viatura');
+    recordOccurrence(v?'Viagem de automóvel':'Saída da viatura');
     s.speed=v?.speed||0;s.angle=v?.angle||0;s.surge=s.sway=s.shock=0;
   }
   if(s.weapon!==undefined && s.weapon!==G.weapon) recordOccurrence('Troca de arma');
@@ -1669,7 +1611,7 @@ function lerpCamera(a,b,t){return a+(b-a)*t;}
 function drawCoverageView(cam,look,cockpit){
   const hidden=[];
   function hide(obj){if(obj.visible){obj.visible=false;hidden.push(obj);}}
-  if(cockpit && G.currentVehicle){hide(G.player);hide(G.currentVehicle.group.children[1]);}
+  if(cockpit && observer.car){hide(observer.subject);hide(observer.car.group.children[1]);}
   const delta=look.clone().sub(cam.position), distance=delta.length();
   if(distance>.01){
     coverage.ray.set(cam.position,delta.normalize());coverage.ray.far=distance;
@@ -1681,7 +1623,7 @@ function drawCoverageView(cam,look,cockpit){
 }
 function renderCoverage(){
   const s=coverage,r=G.renderer;
-  if(!G.started || !G.player){r.render(G.scene,G.camera);return;}
+  if(!G.started || !observer.subject){r.render(G.scene,G.camera);return;}
   if(!G.paused && G.elapsed-s.lastFeed>=.04 && !document.body.classList.contains('ui-hidden')){
     const i=s.nextFeed++%s.feeds.length, f=s.feeds[i], pose=feedPose(i);
     f.camera.position.copy(pose.eye);f.camera.lookAt(pose.look);
@@ -1890,7 +1832,7 @@ function buildIslandRoute(){
 }
 function refreshMap(){
   const category=$('mapGroup').value, query=$('mapQuery').value.toLocaleLowerCase('pt').trim();
-  const origin=G.player?.position||{x:-50,z:-30};
+  const origin=observer.subject?.position||{x:-50,z:-30};
   const distance=a=>a[1]?Math.hypot(a[2]-origin.x,a[3]-origin.z):Infinity;
   const rows=mapActivities.filter(a=>(!category||category===a[0]) && (a[0]+' '+(a[1]||'')).toLocaleLowerCase('pt').includes(query));
   rows.sort((a,b)=>($('mapOrder').value==='near'?distance(a)-distance(b):0)|| (a[1]||a[0]).localeCompare(b[1]||b[0],'pt'));
@@ -1948,21 +1890,22 @@ function openMap(){
   for(const [name,x,y] of [['Vice City',990,1060],['Port Gellhorn',435,690],['Mount Kalaga',730,425],['Southwind',420,1780],['Grassrivers',650,1370]]){
     draw('text',{x,y,fill:'white','font-size':49,'text-anchor':'middle',stroke:'#172c23','stroke-width':4,'paint-order':'stroke'}).textContent=name;
   }
-  if(G.player)draw('circle',{cx:1000+G.player.position.x/.85,cy:1070+G.player.position.z/.85,r:14,fill:'#ff3983',stroke:'white','stroke-width':4});
+  if(observer.subject)draw('circle',{cx:1000+observer.subject.position.x/.85,cy:1070+observer.subject.position.z/.85,r:14,fill:'#ff3983',stroke:'white','stroke-width':4});
   refreshMap();$('mapDialog').showModal();$('mapQuery').focus();
 }
 function updateRoute(){
   if(!mapTarget)return;
-  const d=Math.hypot(G.player.position.x-mapTarget[2],G.player.position.z-mapTarget[3]);
+  const d=Math.hypot(observer.subject.position.x-mapTarget[2],observer.subject.position.z-mapTarget[3]);
   $('routeReadout').textContent=mapTarget[1]+' · '+Math.round(d)+' m';
-  if(d<4){showNotice('Chegaste a '+mapTarget[1]);mapTarget=null;routeMarker.visible=false;$('routeReadout').textContent='';}
+  if(d<4){showNotice('Local observado · '+mapTarget[1]);mapTarget=null;routeMarker.visible=false;$('routeReadout').textContent='';}
 }
 for(const group of new Set(mapActivities.map(a=>a[0])))$('mapGroup').add(new Option(group,group));
 $('openMap').onclick=openMap;$('mapClose').onclick=()=>$('mapDialog').close();
 for(const id of ['mapQuery','mapGroup','mapOrder'])$(id).addEventListener('input',refreshMap);
 
 
-const livingCity=new URLSearchParams(location.search).get('modo')!=='manual';
+const livingCity=true;
+const observer={index:0,next:18,subject:null,car:null};
 const residents=[];
 function sidewalkAt(group){
   const p=group.position, near=streetNear(p.x,p.z,paths);
@@ -1994,7 +1937,7 @@ function driveResident(person,dt){
       travel(car,0,true);person.group.position.copy(car.group.position);
       person.walk=sidewalkAt(person.group);travel(person.walk,0,false);
       person.group.visible=true;car.occupied=false;person.car=null;
-      if(person.group===G.player)G.currentVehicle=null;
+      
       person.state='Em visita · '+person.trip.label;person.until=G.elapsed+rand(4,9);
       return;
     }
@@ -2016,7 +1959,7 @@ function liveResident(person,dt){
   if(car){
     person.trip=plannedTrip(car);person.next=0;person.car=car;car.occupied=true;
     person.group.visible=false;person.state='A conduzir · '+person.trip.label;
-    if(person.group===G.player)G.currentVehicle=car;
+    
   }else if(Math.random()<.25){
     person.state='A descansar';person.until=G.elapsed+rand(2,5);
   }
@@ -2030,11 +1973,9 @@ function liveCivil(n,dt){
   if(n.state!=='Parado')travel(n,dt*(n.state==='A afastar-se'?1.8:1),false);
 }
 function startLivingCity(){
-  $('start').style.display='none';document.body.classList.add('playing');G.started=true;
-  createPlayer();
-  const partner=makeHuman({skin:0xb88a6a,shirt:0xff3da0,pants:0x242737});
-  G.scene.add(partner);
-  for(const [i,group] of [G.player,partner].entries()){
+  document.body.classList.add('playing');G.started=true;
+  for(const [i,cfg] of [{skin:0xc79a7a,shirt:0x2a4a6a,pants:0x282837},{skin:0xb88a6a,shirt:0xff3da0,pants:0x242737}].entries()){
+    const group=makeHuman(cfg);G.scene.add(group);
     group.position.copy(G.vehicles[i].group.position);
     const walk=sidewalkAt(group);travel(walk,0,false);
     residents.push({group,walk,name:i?'Lucia':'Jason',state:'A caminhar',until:0,decide:0});
@@ -2051,58 +1992,26 @@ function animate(){
   const rawDt = Math.min(G.clock.getDelta(), 0.05);
   const dt = rawDt * G.timeScale;
 
-  if(G.started && !G.paused && !$('mapDialog').open){
+  if(G.started && !G.paused){
     G.elapsed += dt;
 
-    if(G.focusActive){
-      G.focus = Math.max(0, G.focus - G.focusDrain*rawDt);
-      if(G.focus <= 0){ G.focusActive = false; G.timeScale = 1; $('focusVignette').classList.remove('show'); }
-    } else if(!G.aiming){
-      G.focus = Math.min(G.maxFocus, G.focus + 8*rawDt);
-    }
-    if(G.attackCooldown > 0) G.attackCooldown -= dt;
-
-    if(livingCity){
-      for(const person of residents)liveResident(person,dt);
-      G.dayNightTarget=(1-Math.cos(G.elapsed*Math.PI/150))/2;
-    }else updatePlayerMovement(dt);
-    updateEnemies(dt, G.elapsed);
-    if(livingCity){for(const pc of G.policeCars)travel(pc,dt,true);}else updatePoliceChase(dt);
+    for(const person of residents)liveResident(person,dt);
+    for(const pc of G.policeCars)travel(pc,dt,true);
     for(const car of G.vehicles)if(!car.occupied)travel(car,dt,true);
-    for(const npc of G.npcs)if(livingCity)liveCivil(npc,dt);else if(!npc.filming)travel(npc,dt,false);
-    updateWildlife(G.elapsed);
+    for(const npc of G.npcs)liveCivil(npc,dt);
+    G.dayNightTarget=(1-Math.cos(G.elapsed*Math.PI/150))/2;
     updateHelicopters(G.elapsed);
-    updateWater(G.elapsed);
+    const oldSubject=observer.subject;
+    if(G.elapsed>=observer.next){
+      observer.index=(observer.index+1)%(residents.length+2);
+      observer.next=G.elapsed+18;
+    }
+    const subject=residents[observer.index] || (observer.index===residents.length ? G.policeCars[0] : G.npcs[0]);
+    observer.subject=subject.group;observer.car=subject.car || null;
+    if(oldSubject!==observer.subject){coverage.look.copy(observer.subject.position);G.camera.position.copy(observer.subject.position).add(new THREE.Vector3(6,4,7));}
     updateCoverage(rawDt);
-    if(livingCity)$('coverageState').textContent=residents.map(p=>p.name+' · '+p.state).join(' | ');
+    $('coverageState').textContent=(subject.name|| (subject===G.policeCars[0]?'Patrulha':'Peão'))+' · '+(subject.state||'Em circulação');
     updateRoute();
-    updateHUD();
-    tickMission(dt);
-    maybeSocialFeed(dt);
-
-    for(const mm of G.scene.userData.missionMarkers || []){
-      mm.ring.rotation.y += dt*0.5;
-      mm.icon.rotation.y += dt*1;
-      mm.icon.position.y = 4 + Math.sin(G.elapsed*2)*0.5;
-    }
-    if(G.scene.userData.gym) G.scene.userData.gym.ring.rotation.y += dt*0.4;
-
-    if(!livingCity && !G.missionRunning && !G.currentMission && !$('approachModal').classList.contains('show')){
-      const mm = G.scene.userData.missionMarkers?.[0];
-      if(mm && dist2D(G.player.position.x, G.player.position.z, mm.x, mm.z) < 4){
-        startMissionPrompt(G.missionIndex);
-      }
-    }
-
-    if(!livingCity && G.enemies.filter(e => e.alive).length < 2 && !G.currentMission){
-      for(let i=0;i<3;i++) spawnEnemy(-40 + rand(-20,20), -100 + rand(-50,50));
-    }
-    G.health = Math.min(G.maxHealth, G.health + 1.5*dt);
-    if(G.enemiesKilled > 0 && G.enemiesKilled % 5 === 0){
-      G.wanted = Math.min(5, G.wanted + 1);
-      G.enemiesKilled = 0;
-    }
-
     G.dayNightValue += (G.dayNightTarget - G.dayNightValue) * Math.min(1, dt*0.8);
     const dn = G.dayNightValue;
     const gh = Math.sin(dn * Math.PI) * 0.85;
@@ -2153,20 +2062,7 @@ document.querySelectorAll('.charBtn').forEach(btn => {
     else G.character = btn.dataset.char;
   });
 });
-$('begin').addEventListener('click', () => {
-  $('start').style.display = 'none';
-  G.started = true; document.body.classList.add('playing');
-  G.elapsed = 0;
-  initAudio();
-  setSound(true);
-  createPlayer();
-  updateGunVisual();
-  addFeed('🌴 BEM-VINDO A LEONIDA', G.relationshipType === 'romantic'
-    ? 'Jason & Lucia — Bonnie & Clyde de Leonida.'
-    : 'Jason & Lucia — parceiros no crime.', true);
-  for(let i=0;i<4;i++) spawnEnemy(30 + rand(-10,10), -80 + rand(-20,20));
-  setTimeout(() => startMissionPrompt(0), 2000);
-});
+
 $('pause').addEventListener('click', () => { G.paused = !G.paused; $('pause').textContent = G.paused ? '▶ RETOMAR' : '⏸ PAUSA'; });
 $('camera').addEventListener('click',()=>setCameraMode((coverage.mode+1)%coverage.names.length));
 document.addEventListener('keydown',cameraControls);
@@ -2353,10 +2249,7 @@ function buildLeonida(){
 setupScene();
 buildLeonida();
 createCoverage();
-setupInput();
-$('modeSwitch').textContent=livingCity?'Jogar manualmente':'Observar cidade';
-$('modeSwitch').onclick=()=>{const url=new URL(location.href);url.searchParams.set('modo',livingCity?'manual':'auto');location.assign(url);};
-if(livingCity)startLivingCity();
+startLivingCity();
 animate();
 </script>
 </body>
