@@ -117,7 +117,7 @@ body.ui-hidden #showUI{display:block}
 <div id="damageNum"></div>
 <div id="interact"></div>
 <div id="notice"></div>
-<div id="city23">🌴 LEONIDA · <span id="weather23">DIA · CÉU LIMPO</span></div>
+<div id="city23">LEONIDA EM DIRETO · <span id="weather23">DIA · CÉU LIMPO</span></div>
 
 <dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição observada" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
   <button id="pause">⏸ PAUSA</button>
@@ -324,7 +324,12 @@ function setupScene(){
   G.scene.fog = new THREE.FogExp2(0xc8dce8, 0.0018);
   G.camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 2000);
   G.camera.position.set(22, 24, 60);
-  G.renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+  try{G.renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});}
+  catch(error){
+    G.mapCanvas=document.createElement('canvas');$('stage').appendChild(G.mapCanvas);
+    G.clock=new THREE.Clock();G.sun=new THREE.DirectionalLight();G.hemi=new THREE.HemisphereLight();
+    $('qualityBtn').hidden=true;return;
+  }
   G.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   G.renderer.setSize(innerWidth, innerHeight);
   G.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1575,7 +1580,7 @@ function updateCoverage(dt){
     if(!near && site.detail.parent) site.group.remove(site.detail);
   }
   let yaw=v?v.angle:G.camYaw;
-  let mode=s.mode===0?(v?3:s.room?5:1):s.mode;
+  let mode=s.mode===0?(s.room?5:4):s.mode;
   if(!v && (mode===2 || mode===3)) mode=1;
   const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
   const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
@@ -1590,7 +1595,7 @@ function updateCoverage(dt){
     s.speed=v.speed;s.angle=yaw;
   }
   if(mode===5){const pose=feedPose(s.mode===0?3:s.selected);eye=pose.eye;look=pose.look;}
-  else if(mode===4) eye.add(new THREE.Vector3(14,21,13));
+  else if(mode===4) eye.add(new THREE.Vector3(23,32,24));
   else if(mode===2){
     eye.addScaledVector(forward,.48-s.surge*.006).addScaledVector(right,-.36-s.sway*.004);
     eye.y+=.18+Math.sin(G.elapsed*35)*(Math.abs(v.speed)*.0005+s.shock*.08);
@@ -1621,7 +1626,35 @@ function drawCoverageView(cam,look,cockpit){
   }
   try{G.renderer.render(G.scene,cam);}finally{for(const obj of hidden)obj.visible=true;}
 }
+
+function drawCityMap(ctx,w,h,focus,zoom){
+  const scale=Math.min(w,h)/zoom;
+  ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#236c81';ctx.fillRect(0,0,w,h);
+  ctx.setTransform(scale,0,0,scale,w/2-focus.x*scale,h/2-focus.z*scale);
+  function line(points){ctx.beginPath();points.forEach(([x,z],i)=>i?ctx.lineTo(x,z):ctx.moveTo(x,z));}
+  ctx.fillStyle='#81977b';
+  for(const ring of shores){line(ring);ctx.closePath();ctx.fill();}
+  ctx.lineJoin='round';ctx.lineCap='round';
+  for(const [,road,,,points] of leonidaWays){line(points);ctx.strokeStyle=road?'#35414a':'#d6caa6';ctx.lineWidth=road?8:2;ctx.stroke();}
+  function dot(actor,r,color){const p=actor.group.position;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.z,r,0,Math.PI*2);ctx.fill();}
+  for(const n of G.npcs)dot(n,1.2,'#ffdb88');
+  for(const v of G.vehicles){const p=v.group.position;ctx.save();ctx.translate(p.x,p.z);ctx.rotate(-v.group.rotation.y);ctx.fillStyle='#f0f0ec';ctx.fillRect(-1.4,-2.6,2.8,5.2);ctx.restore();}
+  for(const p of G.policeCars)dot(p,2.6,'#45baff');
+  for(const person of residents)dot(person,2.2,'#ff638c');
+}
+function renderMapBroadcast(){
+  const canvas=G.mapCanvas,w=innerWidth,h=innerHeight;
+  if(canvas.width!==w || canvas.height!==h){canvas.width=w;canvas.height=h;}
+  drawCityMap(canvas.getContext('2d'),w,h,observer.subject.position,coverage.mode===4?530:170);
+  if(G.elapsed-coverage.lastFeed>.1){
+    const i=coverage.nextFeed++%4,f=coverage.feeds[i],pose=feedPose(i);
+    drawCityMap(f.ctx,192,108,pose.look,85);f.label.textContent=pose.title;
+    coverage.lastFeed=G.elapsed;
+  }
+}
+
 function renderCoverage(){
+  if(G.mapCanvas){renderMapBroadcast();return;}
   const s=coverage,r=G.renderer;
   if(!G.started || !observer.subject){r.render(G.scene,G.camera);return;}
   if(!G.paused && G.elapsed-s.lastFeed>=.04 && !document.body.classList.contains('ui-hidden')){
@@ -2040,7 +2073,7 @@ function animate(){
     G.hemi.intensity = 0.8 * (1 - dn*0.75) + 0.1;
     $('weather23').textContent = dn > 0.7 ? 'NOITE · CÉU LIMPO' : dn > 0.3 ? 'GOLDEN HOUR' : 'DIA · CÉU LIMPO';
     G.envUpdateTimer -= dt;
-    if(G.envUpdateTimer <= 0){ G.envUpdateTimer = 1.5; renderEnv(); }
+    if(G.renderer && G.envUpdateTimer <= 0){ G.envUpdateTimer = 1.5; renderEnv(); }
   } else if(!G.started){
     const now = Date.now()*0.0003;
     G.camera.position.set(Math.sin(now)*50, 35, Math.cos(now)*70);
