@@ -1634,6 +1634,7 @@ function drawCityMap(ctx,w,h,focus,zoom){
   function line(points){ctx.beginPath();points.forEach(([x,z],i)=>i?ctx.lineTo(x,z):ctx.moveTo(x,z));}
   ctx.fillStyle='#81977b';
   for(const ring of shores){line(ring);ctx.closePath();ctx.fill();}
+  drawNeighbourhoods(ctx,focus,w,h,scale);
   ctx.lineJoin='round';ctx.lineCap='round';
   for(const [,road,,,points] of leonidaWays){line(points);ctx.strokeStyle=road?'#35414a':'#d6caa6';ctx.lineWidth=road?8:2;ctx.stroke();}
   function dot(actor,r,color){const p=actor.group.position;ctx.fillStyle=color;ctx.beginPath();ctx.arc(p.x,p.z,r,0,Math.PI*2);ctx.fill();}
@@ -2179,6 +2180,97 @@ function buildCoast(){
   for(const [px,py] of [[1260,1010],[1260,1030],[1260,1050],[857,1690],[460,1785]])createPalm(...toWorld([px,py]));
 }
 
+
+const townPlots=[], beachStrips=[];
+function buildNeighbourhoods(){
+  const batches=new Map();
+  function piece(shape,color,x,y,z,w,h,l,angle=0){
+    const key=shape+color;
+    if(!batches.has(key))batches.set(key,{shape,color,matrices:[]});
+    const obj=new THREE.Object3D();obj.position.set(x,y,z);obj.rotation.y=angle;obj.scale.set(w,h,l);obj.updateMatrix();
+    batches.get(key).matrices.push(obj.matrix);
+  }
+  // Pequenos lotes paralelos à rua. As esquinas, lojas existentes e passeios ficam livres.
+  const clear=(x,z,r)=>onLand(x,z)&&streetNear(x,z).d>r+4&&streetNear(x,z,paths).d>r+1.4
+    && [-145,-65,150].every(sz=>Math.hypot(x+20,z-sz)>r+9)
+    && G.buildings.every(b=>Math.hypot(x-b.mesh.position.x,z-b.mesh.position.z)>r+Math.hypot(b.w,b.d)/2)
+    && townPlots.every(p=>Math.hypot(x-p.x,z-p.z)>r+p.radius+2);
+  for(const [name,road,,,pts] of leonidaWays){
+    if(!road)continue;
+    for(let i=1;i<pts.length;i++){
+      const [ax,az]=pts[i-1],[bx,bz]=pts[i],len=Math.hypot(bx-ax,bz-az);
+      const dx=(bx-ax)/len,dz=(bz-az)/len,angle=Math.atan2(dx,dz);
+      for(let t=11;t<len-5;t+=23)for(const side of [-1,1]){
+        const x=ax+dx*t+dz*17*side,z=az+dz*t-dx*17*side,radius=8;
+        if(!clear(x,z,radius)||!onLand(x+7,z+7)||!onLand(x-7,z-7))continue;
+        const index=townPlots.length,urban=['Vice City','Downtown','Vice Beach','Belville'].includes(name);
+        const kind=index%7===0?'Jardim':index%4===0?'Loja':'Prédio';
+        const color=['#ead6b0','#cf9990','#c4d7d1','#c7b292'][index%4];
+        const h=kind==='Loja'?4:urban?12+(index%6)*3:5+(index%3)*2;
+        townPlots.push({x,z,radius,angle,kind,color,h});
+        function local(shape,tint,lx,y,lz,w,height,l){
+          piece(shape,tint,x+dz*lx+dx*lz,y,z-dx*lx+dz*lz,w,height,l,angle);
+        }
+        if(kind==='Jardim'){
+          local('box','#588855',0,.09,0,12,.14,12);
+          local('box','#ded2ad',0,.19,0,2,.08,12);
+          for(const k of [-1,1]){
+            local('box','#805d42',k*3,.65,0,2,.35,.8);
+            local('box','#6c5138',k*3,1,k*3,.45,2,.45);
+            local('tree','#437650',k*3,3,k*3,3.5,4,3.5);
+          }
+          continue;
+        }
+        local('box',color,0,h/2,0,9,h,10);
+        local('box','#a39182',0,h+.2,0,9.4,.4,10.4);
+        const front=-side*4.56;
+        if(kind==='Loja'){
+          local('box','#345966',front,1.35,0,.14,2.5,7.6);
+          for(let j=-3;j<=3;j++)local('box',j%2?'#cf604b':'#fff1c8',front-side*.55,2.9,j,1.5,.24,1);
+        }else{
+          for(let floor=2;floor<h-1;floor+=3)for(const j of [-3,0,3])
+            local('box','#526f79',front,floor,j,.12,1.25,1.6);
+        }
+      }
+    }
+  }
+  // Areal ao longo da costa exterior de Vice Beach, entre terra e água.
+  const coast=shores[1];
+  for(let i=1;i<=3;i++){
+    const [ax,az]=coast[i],[bx,bz]=coast[i+1],len=Math.hypot(bx-ax,bz-az);
+    const x=(ax+bx)/2,z=(az+bz)/2,angle=Math.atan2(bx-ax,bz-az);
+    beachStrips.push({x,z,len,angle});piece('box','#edd49c',x,0,z,14,.15,len+2,angle);
+    for(let t=6;t<len;t+=14){
+      const u=t/len,px=ax+(bx-ax)*u,pz=az+(bz-az)*u;
+      piece('box','#886b47',px,1,pz,.15,2,.15);
+      piece('shade','#da795d',px,2.2,pz,3,1,3);
+    }
+  }
+  const geometries={box:new THREE.BoxGeometry(1,1,1),tree:new THREE.IcosahedronGeometry(.55,0),shade:new THREE.ConeGeometry(.5,1,8)};
+  for(const {shape,color,matrices} of batches.values()){
+    const batch=new THREE.InstancedMesh(geometries[shape],new THREE.MeshStandardMaterial({color}),matrices.length);
+    matrices.forEach((m,i)=>batch.setMatrixAt(i,m));batch.receiveShadow=true;G.scene.add(batch);
+  }
+}
+function drawNeighbourhoods(ctx,focus,w,h,scale){
+  for(const b of beachStrips){
+    ctx.save();ctx.translate(b.x,b.z);ctx.rotate(-b.angle);ctx.fillStyle='#edd49c';ctx.fillRect(-7,-b.len/2,14,b.len+2);
+    ctx.fillStyle='#da795d';for(let t=6;t<b.len;t+=14){ctx.beginPath();ctx.arc(0,t-b.len/2,1.5,0,Math.PI*2);ctx.fill();}ctx.restore();
+  }
+  for(const p of townPlots){
+    if(Math.abs(p.x-focus.x)>w/(2*scale)+10 || Math.abs(p.z-focus.z)>h/(2*scale)+10)continue;
+    ctx.save();ctx.translate(p.x,p.z);ctx.rotate(-p.angle);
+    if(p.kind==='Jardim'){
+      ctx.fillStyle='#588855';ctx.fillRect(-6,-6,12,12);ctx.fillStyle='#ded2ad';ctx.fillRect(-1,-6,2,12);
+      ctx.fillStyle='#365f41';for(const k of [-3,3]){ctx.beginPath();ctx.arc(k,k,2,0,Math.PI*2);ctx.fill();}
+    }else{
+      ctx.fillStyle='#696960';ctx.fillRect(-3,-4,9,10);ctx.fillStyle=p.color;ctx.fillRect(-4.5,-5,9,10);
+      ctx.fillStyle=p.kind==='Loja'?'#c86147':'#928b84';ctx.fillRect(-3,-4,p.kind==='Loja'?6:3,2);
+    }
+    ctx.restore();
+  }
+}
+
 const streets=[], paths=[], junctions=new Map();
 function linkStreet(a,b,road){
   const dx=b[0]-a[0],dz=b[1]-a[1],len=Math.hypot(dx,dz);
@@ -2281,6 +2373,7 @@ function buildLeonida(){
 
 setupScene();
 buildLeonida();
+buildNeighbourhoods();
 createCoverage();
 startLivingCity();
 animate();
