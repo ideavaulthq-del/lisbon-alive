@@ -861,6 +861,7 @@ function makeHuman(cfg){
 }
 
 function setupScene(){
+  G.clock = new THREE.Clock();
   G.scene = new THREE.Scene();
   G.scene.fog = new THREE.FogExp2(0xc8dce8, 0.0018);
   G.camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 2000);
