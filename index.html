@@ -283,8 +283,8 @@ const ROAD = {
 };
 
 const LANES = {
-  north: { x: ROAD.centerX + ROAD.laneOffset, zStart: ROAD.zMin, zEnd: ROAD.zMax, dir: 1 },  // vai para +Z (sul) — mas o nome é "north" para o jogador
-  south: { x: ROAD.centerX - ROAD.laneOffset, zStart: ROAD.zMax, zEnd: ROAD.zMin, dir: -1 }
+  north: { x: ROAD.centerX - ROAD.laneOffset, zStart: ROAD.zMin, zEnd: ROAD.zMax, dir: 1 },  // vai para +Z (sul) — mas o nome é "north" para o jogador
+  south: { x: ROAD.centerX + ROAD.laneOffset, zStart: ROAD.zMax, zEnd: ROAD.zMin, dir: -1 }
 };
 
 // NOTA: para efeitos de gameplay, lane "north" = trânsito que vem da esquerda, vai para a direita (visualmente).
@@ -671,9 +671,10 @@ function buildPedestrians(){
     const z = -240 + (i * 20) + rand(-8, 8);
     createNPC(x, z, { side: 'west' });
   }
-  // 15 na praia
+  // Distribuir os restantes peões pelos dois passeios
   for(let i=0;i<15;i++){
-    createNPC(-85 + rand(-15, 20), -240 + (i * 30) + rand(-10, 10), { isBeach: true });
+    const side = i % 2 ? 'east' : 'west';
+    createNPC(SIDEWALKS[side].x, -235 + i * 30, { side });
   }
 }
 
@@ -919,11 +920,11 @@ function updatePedestriansAI(dt){
     }
     // 2. Chance de atravessar (só se estiver numa passadeira)
     if(Math.random() < 0.0002){
-      const nearCrosswalk = CROSSWALKS.some(cw => Math.abs(n.group.position.z - cw) < 8);
-      if(nearCrosswalk){
+      const nearCrosswalk = CROSSWALKS.find(cw => Math.abs(n.group.position.z - cw) <= 2.5);
+      if(nearCrosswalk !== undefined){
         n.state = 'crossing';
         n.crossTargetX = n.side === 'east' ? SIDEWALKS.west.x : SIDEWALKS.east.x;
-        n.crossTargetZ = n.group.position.z;
+        n.crossTargetZ = nearCrosswalk;
       }
     }
   }
@@ -1016,6 +1017,10 @@ function updatePlayerMovement(dt){
     v.group.rotation.y = v.angle;
     v.group.position.x += Math.sin(v.angle) * v.speed * dt;
     v.group.position.z += Math.cos(v.angle) * v.speed * dt;
+    // Projeção lateral da carroçaria, incluindo rodas e faróis.
+    const margin = 1.35 * Math.abs(Math.cos(v.angle)) + 2.45 * Math.abs(Math.sin(v.angle));
+    v.group.position.x = clamp(v.group.position.x, ROAD.centerX - ROAD.laneWidth + margin, ROAD.centerX + ROAD.laneWidth - margin);
+    v.group.position.z = clamp(v.group.position.z, ROAD.zMin, ROAD.zMax);
     G.player.position.copy(v.group.position);
     G.player.position.y = 1.5;
     G.player.rotation.y = v.angle;
@@ -1186,9 +1191,10 @@ function toggleVehicle(){
     const exitX = v.group.position.x < ROAD.centerX ? SIDEWALKS.west.x : SIDEWALKS.east.x;
     G.player.position.set(exitX, 0, v.group.position.z);
     // Sincronizar posição do carro com a faixa (se o player o tirou do sítio)
+    v.lane = v.group.position.x < ROAD.centerX ? 'north' : 'south';
     const lane = LANES[v.lane];
     let pos = (v.group.position.z - lane.zStart) * lane.dir;
-    pos = ((pos % LANE_LENGTH) + LANE_LENGTH) % LANE_LENGTH;
+    pos = clamp(pos, 0, LANE_LENGTH);
     v.position = pos;
     v.speed = v.maxSpeed * 0.5;
     G.currentVehicle = null;
@@ -1201,6 +1207,7 @@ function toggleVehicle(){
       if(d < nd){ nd = d; near = v; }
     }
     if(near){
+      near.angle = near.group.rotation.y;
       near.occupied = true;
       G.currentVehicle = near;
       G.player.position.copy(near.group.position);
@@ -1216,10 +1223,10 @@ function toggleVehicle(){
 /* ============ POLÍCIA ============ */
 function updatePoliceChase(dt){
   if(G.wanted > 0 && Math.random() < 0.02 && G.policeCars.length < G.wanted * 2){
-    const angle = Math.random() * Math.PI * 2;
-    const px = G.player.position.x + Math.cos(angle) * 60;
-    const pz = G.player.position.z + Math.sin(angle) * 60;
-    spawnPoliceCar(px, pz);
+    const targetZ = clamp(G.player.position.z, ROAD.zMin, ROAD.zMax);
+    const behind = targetZ >= ROAD.zMax - 60 || (targetZ > ROAD.zMin + 60 && Math.random() < 0.5);
+    const lane = behind ? LANES.north : LANES.south;
+    spawnPoliceCar(lane.x, targetZ - lane.dir * 60);
   }
   for(let i = G.policeCars.length - 1; i >= 0; i--){
     const pc = G.policeCars[i];
@@ -1232,9 +1239,15 @@ function updatePoliceChase(dt){
       continue;
     }
     const speed = 10 * dt;
-    pc.group.position.x += (dx/d) * speed;
-    pc.group.position.z += (dz/d) * speed;
-    pc.group.rotation.y = Math.atan2(dx, dz);
+    const lane = pc.group.position.x === LANES.north.x ? LANES.north : LANES.south;
+    pc.group.position.z += lane.dir * Math.min(speed, Math.max(0, dz * lane.dir));
+    pc.group.position.z = clamp(pc.group.position.z, ROAD.zMin, ROAD.zMax);
+    pc.group.rotation.y = lane.dir > 0 ? 0 : Math.PI;
+    if(dz * lane.dir < -10){
+      G.scene.remove(pc.group);
+      G.policeCars.splice(i, 1);
+      continue;
+    }
     pc.light.material.color.setHex(Math.floor(G.elapsed*6)%2 === 0 ? 0xff0000 : 0x0000ff);
     if(d < 3 && !G.currentVehicle){
       pc.attackCooldown = (pc.attackCooldown || 0) - dt;
