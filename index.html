@@ -1,0 +1,1830 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>VICE CITY ALIVE™ | CINEMATIC COVERAGE</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0015;color:#fff;font-family:'Segoe UI',Arial,sans-serif;user-select:none}
+#stage{position:absolute;inset:0;z-index:0}canvas{display:block}
+
+/* === HUD === */
+#hud{position:absolute;inset:0;pointer-events:none;z-index:10}
+.hudbox{position:absolute;background:rgba(10,5,25,.85);border:1px solid #ff3da0aa;border-radius:8px;padding:10px 14px;backdrop-filter:blur(6px);font-size:11px}
+#playerStats{left:18px;top:18px;width:230px}
+#playerName{font-weight:900;font-size:14px;letter-spacing:2px;color:#ff3da0;margin-bottom:2px}
+#playerRole{font-size:10px;color:#c79aff;margin-bottom:8px}
+.bar{height:9px;background:#1a0a2a;border-radius:5px;overflow:hidden;margin:4px 0;position:relative}
+.bar i{display:block;height:100%;transition:width .2s}
+.bar#hp i{background:linear-gradient(90deg,#ff3d5a,#ff8a3d)}
+.bar#st i{background:linear-gradient(90deg,#3dff9e,#3dc7ff)}
+.bar#fc i{background:linear-gradient(90deg,#c93dff,#ff3da0)}
+.bar span{position:absolute;left:6px;top:-1px;font:bold 8px Arial;color:#fff;letter-spacing:.5px}
+#rightHud{right:18px;top:18px;min-width:230px}
+#rightHud .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ffffff15;font-size:11px}
+#rightHud .row:last-child{border:0}
+#money{color:#3dff9e;font-weight:800}
+#wanted{color:#ff3d5a;font-weight:800;letter-spacing:2px}
+
+/* === STATE HUD (tactical) === */
+#stateHud{position:absolute;left:18px;top:210px;width:230px;z-index:11}
+#stateHud .row{display:flex;justify-content:space-between;font-size:10px;padding:2px 0}
+#stateHud .row b{color:#3dc7ff;font-weight:700}
+#stateHud .hdr{color:#ffcb65;font-weight:900;font-size:10px;letter-spacing:1.2px;margin-bottom:6px}
+.stateTag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:800;letter-spacing:.5px;margin-left:4px}
+.st-idle{background:#333;color:#aaa}
+.st-walk{background:#1a5a3d;color:#77e4b0}
+.st-run{background:#1a4a6d;color:#3dc7ff}
+.st-aim{background:#5a3d1a;color:#ffaa3d}
+.st-shoot{background:#5a1a1a;color:#ff3d5a}
+.st-flee{background:#5a3d00;color:#ffdd44}
+.st-fight{background:#5a0033;color:#ff3da0}
+.st-stealth{background:#2a1a5a;color:#c93dff}
+
+/* === EVENT HUD === */
+#eventHud{position:absolute;right:18px;top:220px;width:230px;z-index:11;display:none}
+#eventHud.active{display:block}
+#eventHud .hdr{color:#ffcb65;font-weight:900;font-size:10px;letter-spacing:1.2px;margin-bottom:6px}
+#eventHud .evtType{font-size:16px;font-weight:900;color:#ff3da0;letter-spacing:2px;margin-bottom:2px}
+#eventHud .evtLoc{font-size:10px;color:#c79aff;margin-bottom:6px}
+#eventHud .evtBar{height:6px;background:#1a0a2a;border-radius:3px;overflow:hidden;margin-bottom:4px}
+#eventHud .evtBar i{display:block;height:100%;background:linear-gradient(90deg,#ff3da0,#ffaa3d);transition:width .3s}
+#eventHud .evtMeta{font-size:10px;color:#3dff9e;display:flex;justify-content:space-between}
+
+/* === CAMERA HUD === */
+#camHud{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:rgba(10,5,25,.92);border:1px solid #3dc7ff;padding:6px 16px;border-radius:20px;font:800 11px 'Courier New',monospace;letter-spacing:1.5px;color:#3dc7ff;z-index:14;pointer-events:none;display:flex;gap:10px;align-items:center}
+#camHud .blend{width:60px;height:4px;background:#1a2a3a;border-radius:2px;overflow:hidden}
+#camHud .blend i{display:block;height:100%;background:#3dc7ff;transition:width .1s}
+#camHud.event{border-color:#ff3da0;color:#ff3da0}
+#camHud.event .blend i{background:#ff3da0}
+
+/* === CCTV CONTAINER === */
+#cctvContainer{position:absolute;bottom:110px;left:50%;transform:translateX(-50%);display:none;gap:8px;z-index:15;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:95vw}
+#cctvContainer.active{display:flex}
+.feedFrame{position:relative;border:2px solid #ff3da0;border-radius:4px;overflow:hidden;background:transparent;box-shadow:0 4px 20px #000a}
+.feedFrame::before{content:'';position:absolute;inset:0;box-shadow:inset 0 0 40px rgba(255,61,160,.15);pointer-events:none;z-index:2}
+.feedFrame::after{content:'';position:absolute;left:0;right:0;height:2px;background:rgba(255,61,160,.3);animation:scanline 3s linear infinite;z-index:2}
+@keyframes scanline{0%{top:0}100%{top:100%}}
+.feedLabel{position:absolute;top:4px;left:6px;font:bold 9px 'Courier New',monospace;color:#ff3da0;letter-spacing:1px;z-index:3;text-shadow:1px 1px 3px #000,0 0 6px #ff3da0}
+.feedRec{position:absolute;top:4px;right:6px;font:bold 9px 'Courier New',monospace;color:#ff3d5a;z-index:3;animation:recBlink 1s infinite;text-shadow:0 0 6px #ff3d5a}
+.feedTag{position:absolute;bottom:4px;left:6px;font:bold 8px 'Courier New',monospace;color:#3dff9e;z-index:3;text-shadow:1px 1px 2px #000}
+@keyframes recBlink{0%,50%{opacity:1}51%,100%{opacity:.2}}
+
+/* === MISSION === */
+#mission{position:absolute;left:18px;bottom:110px;min-width:280px;display:none;z-index:15}
+#mission.show{display:block}
+#missionTitle{color:#ffaa3d;font-weight:800;font-size:12px;letter-spacing:1px;margin-bottom:4px}
+#missionObj{font-size:11px;color:#c79aff;line-height:1.4}
+
+/* === CONTROLS === */
+#controls{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:95vw;padding:8px 12px;background:#081421e8;border:1px solid #4d6575;border-radius:13px;z-index:20;pointer-events:auto}
+button{cursor:pointer;color:white;background:#243d53;border:1px solid #64849b;border-radius:7px;padding:9px 12px;font-weight:700;font-size:11px}
+button:hover{background:#395b77}
+button.primary{background:#d5a955;color:#0d1825;border-color:#efc77c}
+button.cam{background:#1a3a5a;border-color:#3dc7ff;color:#3dc7ff}
+button.cam:hover{background:#3dc7ff;color:#0a0015}
+button.rec{background:#5a1a1a;border-color:#ff3d5a;color:#ff3d5a}
+button.rec:hover{background:#ff3d5a;color:#0a0015}
+
+/* === CROSSHAIR / FOCUS / INTERACT === */
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;border:2px solid #ff3da0;border-radius:50%;display:none;box-shadow:0 0 8px #ff3da0;z-index:15}
+#crosshair.show{display:block}
+#focusVignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle,transparent 40%,#ff3da0aa 100%);opacity:0;transition:opacity .2s;z-index:5}
+#focusVignette.show{opacity:1}
+#damageNum{position:absolute;color:#ff3d5a;font-weight:900;font-size:20px;pointer-events:none;text-shadow:0 2px 6px #000;opacity:0;z-index:25}
+#interact{position:absolute;left:50%;bottom:130px;transform:translateX(-50%);background:rgba(10,5,25,.92);border:1px solid #ffaa3d;padding:8px 18px;border-radius:20px;font-weight:800;font-size:12px;color:#ffaa3d;display:none;z-index:20}
+#interact.show{display:block}
+#notice{position:absolute;top:47%;left:50%;transform:translate(-50%,-50%);font-size:26px;font-weight:900;text-shadow:0 3px 15px #000;opacity:0;pointer-events:none;transition:opacity .3s;white-space:nowrap;z-index:25}
+#notice.show{opacity:1}
+
+/* === FEED LOG === */
+#feed{position:absolute;right:18px;bottom:110px;width:260px;z-index:14;pointer-events:none;max-height:180px;overflow:hidden}
+.feedItem{background:rgba(10,5,25,.94);border-left:3px solid #ff3da0;padding:6px 10px;border-radius:4px;margin-bottom:4px;font-size:10px;line-height:1.4;animation:slideIn .3s ease-out}
+.feedItem.viral{border-left-color:#3dff9e}
+.feedItem .tag{color:#ff3da0;font-weight:800;font-size:9px;letter-spacing:1px;display:block;margin-bottom:1px}
+.feedItem.viral .tag{color:#3dff9e}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* === MODAIS === */
+.modal-overlay{position:absolute;inset:0;background:rgba(2,8,14,.85);backdrop-filter:blur(5px);z-index:35;display:none;place-items:center;padding:20px}
+.modal-overlay.show{display:grid}
+.modal-overlay .modal{width:min(520px,92vw);text-align:center;padding:28px 24px;background:linear-gradient(160deg,#1a0a2a,#0a0015);border:1px solid #ff3da0;border-radius:18px}
+.approach-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.approach-btns button{font-size:13px;padding:14px 18px;background:#1a0a2a;border:2px solid #ff3da0;color:#ff3da0;min-width:130px}
+.approach-btns button:hover{background:#ff3da0;color:#0a0015}
+#approachTitle{font-size:20px;font-weight:900;color:#ffaa3d;margin-bottom:8px}
+#approachDesc{font-size:12px;color:#c79aff;line-height:1.5}
+#reportIcon{font-size:52px;margin-bottom:6px}
+#reportTitle{font-size:24px;margin:0 0 6px}
+#reportSub{color:#a9c2d6;font-size:12px;margin-bottom:14px}
+.report-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;text-align:left}
+.report-stats div{background:#0d2236;border:1px solid #ff3da055;border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between}
+.report-stats span{color:#a9c2d6;font-size:10px;text-transform:uppercase}
+.report-stats b{color:#fff;font-size:13px}
+.report-buttons{display:flex;gap:10px;justify-content:center}
+
+/* === START SCREEN === */
+#start{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at top,#2a0a3d,#0a0015);z-index:50;overflow-y:auto;padding:20px}
+#start .modal{width:min(640px,95vw);text-align:center;padding:35px 32px;background:linear-gradient(160deg,rgba(30,10,50,.95),rgba(10,5,25,.95));border:2px solid #ff3da0;border-radius:20px;margin:auto}
+#start h1{font-size:34px;letter-spacing:4px;margin-bottom:4px;text-shadow:0 0 20px #ff3da0}
+#start h1 b{color:#ff3da0}
+#start .sub{color:#c79aff;letter-spacing:3px;font-size:11px;margin-bottom:16px}
+#start p{color:#b0a0c0;font-size:12px;line-height:1.7;margin-bottom:14px}
+.section-title{color:#3dff9e;font-weight:900;font-size:11px;letter-spacing:2px;margin:16px 0 8px;text-align:left}
+.charSelect{display:flex;gap:12px;justify-content:center;margin-bottom:12px}
+.charBtn{cursor:pointer;padding:12px 16px;background:#1a0a2a;border:2px solid #4d2a6d;border-radius:12px;font-weight:800;letter-spacing:1px;transition:all .2s;min-width:150px;text-align:left}
+.charBtn:hover,.charBtn.sel{background:#ff3da0;border-color:#ff3da0;transform:translateY(-2px)}
+.charBtn .name{display:block;font-size:13px;margin-bottom:3px}
+.charBtn .desc{font-size:9px;opacity:.85;font-weight:400}
+#start button{font-size:15px;padding:14px 32px;background:linear-gradient(90deg,#ff3da0,#c93dff);border:none;border-radius:10px;color:#fff;font-weight:900;letter-spacing:2px;cursor:pointer;margin-top:14px}
+#start .controls{font-size:10px;color:#888;margin-top:16px;line-height:1.7;text-align:left}
+
+#city23{position:absolute;right:14px;top:180px;z-index:19;background:#1a0a2aee;border:1px solid #b58e4d;border-radius:7px;padding:8px 12px;font:800 11px Arial;color:#ffda89;pointer-events:none}
+body.ui-hidden #hud,body.ui-hidden #feed,body.ui-hidden #controls,body.ui-hidden #cctvContainer,body.ui-hidden #interact,body.ui-hidden #mission,body.ui-hidden #stateHud,body.ui-hidden #eventHud,body.ui-hidden #city23{display:none!important}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div id="hud">
+  <div class="hudbox" id="playerStats">
+    <div id="playerName">JASON DUVAL</div>
+    <div id="playerRole">CAUTELOSO · MILITAR · KEYS</div>
+    <div class="bar" id="hp"><i style="width:100%"></i><span>HP</span></div>
+    <div class="bar" id="st"><i style="width:100%"></i><span>STAMINA</span></div>
+    <div class="bar" id="fc"><i style="width:100%"></i><span>FOCUS</span></div>
+  </div>
+  <div class="hudbox" id="rightHud">
+    <div class="row"><span>💰 FINANÇAS</span><b id="money">$0</b></div>
+    <div class="row"><span>🚨 PROCURADO</span><b id="wanted">—</b></div>
+    <div class="row"><span>💗 RELAÇÃO</span><b id="relVal">50%</b></div>
+    <div class="row"><span>🎥 CÂMARA</span><b id="camLabel" style="color:#3dc7ff">PLAYER-TPS</b></div>
+    <div class="row"><span>📡 CCTV</span><b id="cctvState" style="color:#888">STANDBY</b></div>
+  </div>
+
+  <div class="hudbox" id="stateHud">
+    <div class="hdr">🎯 ESTADO TÁTICO</div>
+    <div class="row"><span>JOGADOR</span><b id="stPlayer">—</b></div>
+    <div class="row"><span>ARMA</span><b id="stWeapon">—</b></div>
+    <div class="row"><span>STEALTH</span><b id="stStealth">—</b></div>
+    <div class="row"><span>VEÍCULO</span><b id="stVehicle">—</b></div>
+    <div class="row"><span>NPCS</span><b id="stNpcs">—</b></div>
+    <div class="row"><span>POLÍCIA</span><b id="stPolice">—</b></div>
+    <div class="row"><span>INIMIGOS</span><b id="stEnemies">—</b></div>
+  </div>
+
+  <div class="hudbox" id="eventHud">
+    <div class="hdr">📡 EVENTO ATIVO</div>
+    <div class="evtType" id="evtType">—</div>
+    <div class="evtLoc" id="evtLoc">—</div>
+    <div class="evtBar"><i id="evtIntensity" style="width:0%"></i></div>
+    <div class="evtMeta"><span>⏱ <span id="evtDuration">0s</span></span><span>🎥 <span id="evtCams">0</span> CAM</span></div>
+  </div>
+</div>
+
+<div id="camHud">
+  <span id="camHudName">🎥 PLAYER-TPS</span>
+  <div class="blend"><i id="camBlend" style="width:100%"></i></div>
+  <span id="camHudBlend">1.0</span>
+</div>
+
+<div id="cctvContainer"></div>
+
+<div id="mission">
+  <div id="missionTitle">📋 MISSÃO</div>
+  <div id="missionObj">—</div>
+</div>
+
+<div id="feed"></div>
+<div id="crosshair"></div>
+<div id="focusVignette"></div>
+<div id="damageNum"></div>
+<div id="interact"></div>
+<div id="notice"></div>
+<div id="city23">🌴 VICE CITY</div>
+
+<div id="controls">
+  <button class="cam" id="camCycle">🎥 CICLAR</button>
+  <button class="cam" id="camReset">↺ RESET</button>
+  <button class="rec" id="camRecord">🔴 CCTV MANUAL</button>
+  <button id="pause">⏸ PAUSA</button>
+  <button class="primary" id="camera">🎬 AUTO</button>
+  <button id="hideUI">👁 OCULTAR (M)</button>
+</div>
+
+<div id="approachModal" class="modal-overlay">
+  <div class="modal">
+    <div id="approachTitle"></div>
+    <div id="approachDesc"></div>
+    <div class="approach-btns">
+      <button data-approach="stealth">🥷 STEALTH</button>
+      <button data-approach="force">💪 FORÇA BRUTA</button>
+      <button data-approach="negotiate">🤝 NEGOCIAÇÃO</button>
+    </div>
+  </div>
+</div>
+
+<div id="reportModal" class="modal-overlay">
+  <div class="modal">
+    <div id="reportIcon">🏆</div>
+    <h2 id="reportTitle">MISSÃO CUMPRIDA</h2>
+    <div id="reportSub">—</div>
+    <div class="report-stats">
+      <div><span>Recompensa</span><b id="repReward">--</b></div>
+      <div><span>Abordagem</span><b id="repApproach">--</b></div>
+      <div><span>Relação</span><b id="repRel">--</b></div>
+      <div><span>Missão</span><b id="repMission">--</b></div>
+    </div>
+    <div class="report-buttons">
+      <button id="repRetry">↻ REPETIR</button>
+      <button class="primary" id="repNext">▶ CONTINUAR</button>
+    </div>
+  </div>
+</div>
+
+<div id="start">
+  <div class="modal">
+    <div style="font-size:40px">🎥</div>
+    <h1>VICE CITY <b>ALIVE</b>™</h1>
+    <div class="sub">CINEMATIC COVERAGE · CCTV MULTI-FEED</div>
+    <p>Sistema de cobertura total: câmaras dinâmicas, feeds CCTV em tempo real, spring arm com física, cutaway de interiores com fade, tracking de todos os estados.</p>
+    <div class="section-title">PROTAGONISTA</div>
+    <div class="charSelect">
+      <div class="charBtn sel" data-char="jason"><span class="name">JASON DUVAL</span><span class="desc">Força bruta · Militar</span></div>
+      <div class="charBtn" data-char="lucia"><span class="name">LUCIA CAMINOS</span><span class="desc">Ágil · Impulsiva</span></div>
+    </div>
+    <button id="begin">▶ INICIAR</button>
+    <div class="controls">
+      🎮 <b>WASD</b> mover · <b>RATO</b> olhar · <b>SHIFT</b> correr · <b>CTRL</b> stealth · <b>ESPAÇO</b> saltar<br>
+      🥊 <b>LMB</b> atacar · <b>RMB</b> apontar · <b>F</b> FOCUS · <b>1/2/3</b> armas<br>
+      🚗 <b>E</b> veículo · <b>G</b> ginásio · <b>M</b> UI<br>
+      🎥 <b>C</b> ciclar câmara · <b>V</b> reset · <b>R</b> CCTV manual<br>
+      <b>CÂMARAS:</b> PLAYER-TPS/FPS/AIM · VEHICLE-CHASE/HOOD/BUMPER/COCKPIT/SIDE/REAR · INTERIOR-WIDE/CLOSE/CEILING · CINEMATIC-ORBIT/DRONE/HELI/TRACKING/DOLLY · CCTV
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const rand = (a,b) => a + Math.random()*(b-a);
+const dist2D = (ax,az,bx,bz) => Math.sqrt((ax-bx)**2 + (az-bz)**2);
+const lerp = (a,b,t) => a + (b-a)*t;
+const smoothstep = t => t*t*(3-2*t);
+
+/* ============================================================
+   GLOBAL STATE
+   ============================================================ */
+const G = {
+  scene:null, camera:null, renderer:null, clock:null,
+  started:false, paused:false, elapsed:0,
+  character:'jason',
+  player:null,
+  camYaw:0, camPitch:0.35,
+  aiming:false, focusActive:false,
+  attackCooldown:0,
+  health:100, maxHealth:100, stamina:100, maxStamina:100, focus:100, maxFocus:100,
+  strength:1, cardio:1, focusLevel:1,
+  money:0, wanted:0, relationship:50, weapon:0,
+  enemies:[], vehicles:[], policeCars:[], buildings:[],
+  currentVehicle:null,
+  currentMission:null, missionIndex:0, missionRunning:false, missionStats:null,
+  npcs:[], alligators:[], flamingos:[],
+  dayNightValue:0,
+  skyMat:null, sun:null, hemi:null,
+  keys:{}, pointerLock:false,
+  audioCtx:null,
+  lastFeed:0,
+  heistLocations:{}, // { malibu: {cutables, pos}, jewelry: {...} }
+  interiorActive:false,
+  interiorRoom:null,
+  interiorCutables:[]
+};
+
+/* ============================================================
+   STATE TRACKER — tudo o que acontece, aconteceu ou não
+   ============================================================ */
+const State = {
+  player:{
+    action:'idle', weapon:'none', inVehicle:false, stealth:false,
+    alert:0, lastShotTime:-10, lastMoveTime:-10,
+    pos:new THREE.Vector3(), vel:new THREE.Vector3(),
+    lastPos:new THREE.Vector3(),
+    enteringBuilding:false
+  },
+  vehicle:{
+    speed:0, prevSpeed:0, angle:0, prevAngle:0,
+    collisionImpulse:0, isMoving:false
+  },
+  event:{
+    type:'normal', intensity:0, location:null, startTime:0
+  },
+  npcs:[],
+  police:{
+    count:0, state:'patrol', pursuit:false, alert:0
+  },
+  interior:{
+    active:false, room:null, cutables:[]
+  },
+  counters:{
+    shotsFired:0, stealthKills:0, driveDistance:0, doorsOpened:0, doorsClosed:0
+  }
+};
+
+/* ============================================================
+   WORLD CONSTANTS
+   ============================================================ */
+const ROAD = { centerX: -55, laneOffset: 5 };
+const LANES = {
+  north: { x: ROAD.centerX + ROAD.laneOffset, zStart: -240, dir: 1 },
+  south: { x: ROAD.centerX - ROAD.laneOffset, zStart: 240, dir: -1 }
+};
+const SIDEWALKS = { east: { x: ROAD.centerX + 13 }, west: { x: ROAD.centerX - 13 } };
+const LANE_LENGTH = 480;
+
+const MISSIONS = [
+  { id:'prologue', name:'🚗 O PLANO FÁCIL', desc:'Rouba um carro.', reward:800,
+    approaches:['stealth','force'], interior:false, location:{x:-60, z:80} },
+  { id:'malibu', name:'💎 ASSALTO AO MALIBU CLUB', desc:'Entra no clube. CCTV ativa.',
+    reward:3500, approaches:['stealth','force','negotiate'], interior:true,
+    location:{x:-15, z:50}, camPos:new THREE.Vector3(-28, 9, 35) },
+  { id:'jewelry', name:'💍 JOALHARIA', desc:'Rouba as vitrines.',
+    reward:6000, approaches:['stealth','force','negotiate'], interior:true,
+    location:{x:20, z:-50}, camPos:new THREE.Vector3(32, 7, -62) },
+  { id:'starfish', name:'🏝️ STARFISH HEIST', desc:'Assalto a mansão.',
+    reward:12000, approaches:['stealth','force','negotiate'], interior:true,
+    location:{x:-250, z:0}, camPos:new THREE.Vector3(-238, 10, 22) }
+];
+
+/* ============================================================
+   CAMERA RIGS (base + 5 types)
+   ============================================================ */
+class CameraRig {
+  constructor(name){ this.name = name; }
+  compute(dt){ return null; }
+  reset(){}
+}
+
+/* --- PlayerRig: TPS/FPS/AIM/STEALTH --- */
+class PlayerRig extends CameraRig {
+  constructor(mode='tps'){ super('player'); this.mode = mode; }
+  compute(dt){
+    if(!G.player) return null;
+    if(this.mode === 'fps'){
+      const head = G.player.position.clone().add(new THREE.Vector3(0, 1.75, 0));
+      const fwd = new THREE.Vector3(Math.sin(G.camYaw), 0, Math.cos(G.camYaw));
+      const look = head.clone().add(fwd).add(new THREE.Vector3(0, -Math.sin(G.camPitch), 0));
+      return { pos:head, look, fov:75, roll:0 };
+    }
+    const pitch = G.camPitch, yaw = G.camYaw;
+    let dist = 6.5, height = 2.5, fov = 65;
+    if(this.mode === 'aim'){ dist = 3.5; height = 1.5; fov = 55; }
+    if(this.mode === 'stealth'){ dist = 4.5; height = 2.0; fov = 60; }
+    const offset = new THREE.Vector3(
+      -Math.sin(yaw)*Math.cos(pitch)*dist,
+      height + Math.sin(pitch)*dist,
+      -Math.cos(yaw)*Math.cos(pitch)*dist
+    );
+    const pos = G.player.position.clone().add(offset);
+    const look = G.player.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+    return { pos, look, fov, roll:0 };
+  }
+}
+
+/* --- VehicleRig: 6 modes with physics --- */
+class VehicleRig extends CameraRig {
+  constructor(mode='chase'){ super('vehicle'); this.mode = mode; }
+  reset(){ this.inited = false; }
+  compute(dt){
+    const v = G.currentVehicle;
+    if(!v) return null;
+    const carPos = v.group.position;
+    const speed = Math.abs(v.speed);
+    const speedNorm = clamp(speed / 35, 0, 1);
+    const fwd = new THREE.Vector3(Math.sin(v.angle), 0, Math.cos(v.angle));
+
+    if(this.mode === 'hood'){
+      const pos = carPos.clone().add(new THREE.Vector3(0, 1.4, 0)).add(fwd.clone().multiplyScalar(1.8));
+      const look = pos.clone().add(fwd.clone().multiplyScalar(5)).add(new THREE.Vector3(0, 0.3, 0));
+      return { pos, look, fov: 78 + speedNorm*12, roll: this.computeRoll(v, dt) };
+    }
+    if(this.mode === 'bumper'){
+      const pos = carPos.clone().add(new THREE.Vector3(0, 0.55, 0)).add(fwd.clone().multiplyScalar(2.5));
+      const look = pos.clone().add(fwd.clone().multiplyScalar(8));
+      return { pos, look, fov: 82 + speedNorm*10, roll: this.computeRoll(v, dt) };
+    }
+    if(this.mode === 'cockpit'){
+      const pos = carPos.clone().add(new THREE.Vector3(0, 1.65, 0)).add(fwd.clone().multiplyScalar(0.3));
+      const look = pos.clone().add(fwd.clone().multiplyScalar(4)).add(new THREE.Vector3(0, 0.4, 0));
+      return { pos, look, fov: 68, roll: this.computeRoll(v, dt) };
+    }
+    if(this.mode === 'side'){
+      const right = new THREE.Vector3(Math.cos(v.angle), 0, -Math.sin(v.angle));
+      const pos = carPos.clone().add(right.clone().multiplyScalar(11)).add(new THREE.Vector3(0, 3, 0));
+      const look = carPos.clone().add(new THREE.Vector3(0, 1.5, 0));
+      return { pos, look, fov: 55 };
+    }
+    if(this.mode === 'rear'){
+      const pos = carPos.clone().sub(fwd.clone().multiplyScalar(8)).add(new THREE.Vector3(0, 4, 0));
+      const look = carPos.clone().add(new THREE.Vector3(0, 1.5, 0));
+      return { pos, look, fov: 65 };
+    }
+
+    // CHASE — spring arm with full physics
+    if(!this.inited){
+      this.currentDist = 10; this.currentPos = new THREE.Vector3(); this.currentLook = new THREE.Vector3();
+      this.currentFov = 68; this.currentRoll = 0;
+      this.inited = true;
+    }
+    let targetDist = 9 + speedNorm * 4.5;
+
+    // Camera pivot above car
+    const pivot = carPos.clone().add(new THREE.Vector3(0, 3.5 + speedNorm*1.5, 0));
+
+    // Behind direction
+    const behind = new THREE.Vector3(-fwd.x, 0, -fwd.z);
+    const desiredOffset = behind.clone().multiplyScalar(targetDist);
+
+    // Raycast anti-clip against buildings AND vehicle body
+    let safeDist = targetDist;
+    const ray = new THREE.Raycaster(pivot, desiredOffset.clone().normalize(), 0.5, targetDist);
+    for(const b of G.buildings){
+      const box = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(b.mesh.position.x, b.h/2, b.mesh.position.z),
+        new THREE.Vector3(b.w, b.h, b.d)
+      );
+      const hit = new THREE.Vector3();
+      if(ray.ray.intersectBox(box, hit)){
+        const d = hit.distanceTo(pivot);
+        if(d < safeDist) safeDist = Math.max(3, d - 1.2);
+      }
+    }
+    // Prevent arm going inside car
+    const carBox = new THREE.Box3().setFromObject(v.group);
+    const carHit = new THREE.Vector3();
+    if(ray.ray.intersectBox(carBox, carHit)){
+      const d = carHit.distanceTo(pivot);
+      if(d < safeDist) safeDist = Math.max(targetDist, d + 2.5);
+    }
+
+    // Spring damping
+    this.currentDist = lerp(this.currentDist, safeDist, Math.min(1, 8*dt));
+
+    // Compute pos with inertia + collision shake + vibration
+    const dir = desiredOffset.clone().normalize();
+    const actualPos = pivot.clone().add(dir.multiplyScalar(this.currentDist));
+
+    // Acceleration inertia (dive on brake, squat on accel)
+    const accel = (v.speed - (v.prevSpeed || v.speed)) / Math.max(dt, 0.001);
+    v.prevSpeed = v.speed;
+    const dive = clamp(-accel * 0.08, -0.8, 0.8);
+    actualPos.y -= dive;
+
+    // Vibration (increases with speed)
+    const vibr = speedNorm * 0.04;
+    actualPos.x += rand(-vibr, vibr);
+    actualPos.y += rand(-vibr, vibr);
+    actualPos.z += rand(-vibr, vibr);
+
+    // Collision impulse shake
+    if(State.vehicle.collisionImpulse > 0){
+      const imp = State.vehicle.collisionImpulse;
+      actualPos.x += rand(-imp, imp) * 2;
+      actualPos.y += rand(-imp, imp) * 2;
+      actualPos.z += rand(-imp, imp) * 2;
+      State.vehicle.collisionImpulse *= 0.85;
+    }
+
+    // Look-ahead (further at speed)
+    const lookAhead = carPos.clone()
+      .add(fwd.clone().multiplyScalar(3 + speedNorm*12))
+      .add(new THREE.Vector3(0, 1.8 - dive*0.5, 0));
+
+    // FOV expands with speed
+    const targetFov = 66 + speedNorm * 16;
+    const targetRoll = this.computeRoll(v, dt);
+
+    // Double smooth
+    this.currentPos.lerp(actualPos, Math.min(1, 12*dt));
+    this.currentLook.lerp(lookAhead, Math.min(1, 10*dt));
+    this.currentFov = lerp(this.currentFov, targetFov, Math.min(1, 5*dt));
+    this.currentRoll = lerp(this.currentRoll, targetRoll, Math.min(1, 6*dt));
+
+    return { pos: this.currentPos.clone(), look: this.currentLook.clone(), fov: this.currentFov, roll: this.currentRoll };
+  }
+  computeRoll(v, dt){
+    const angularVel = (v.angle - (v.prevAngle || v.angle)) / Math.max(dt, 0.001);
+    v.prevAngle = v.angle;
+    return clamp(-angularVel * 0.15, -0.15, 0.15);
+  }
+}
+
+/* --- InteriorRig: cutaway with fade --- */
+class InteriorRig extends CameraRig {
+  constructor(mode='wide'){ super('interior'); this.mode = mode; }
+  compute(dt){
+    if(!State.interior.active || !G.player) return null;
+    const room = State.interior.room;
+    const playerPos = G.player.position.clone().add(new THREE.Vector3(0, 1.5, 0));
+
+    let camPos, look, fov = 72;
+    if(this.mode === 'wide'){
+      camPos = new THREE.Vector3(room.pos.x - 10, 7, room.pos.z + 9);
+      look = playerPos;
+    } else if(this.mode === 'close'){
+      const dir = playerPos.clone().sub(new THREE.Vector3(room.pos.x, 2, room.pos.z)).normalize();
+      camPos = playerPos.clone().sub(dir.clone().multiplyScalar(5)).add(new THREE.Vector3(0, 1.2, 0));
+      look = playerPos;
+      fov = 55;
+    } else if(this.mode === 'ceiling'){
+      camPos = new THREE.Vector3(room.pos.x, 11, room.pos.z);
+      look = playerPos;
+      fov = 80;
+    } else if(this.mode === 'security'){
+      camPos = new THREE.Vector3(room.pos.x + 8, 9, room.pos.z - 8);
+      look = playerPos;
+      fov = 65;
+    }
+
+    // Fade occluding walls
+    this.fadeCutables(camPos, look, State.interior.cutables);
+
+    return { pos: camPos, look, fov, roll:0 };
+  }
+  fadeCutables(camPos, lookAt, cutables){
+    for(const c of cutables){
+      if(!c.material) continue;
+      // Ensure material is transparent
+      if(!c.material.transparent){
+        c.material = c.material.clone();
+        c.material.transparent = true;
+        c.material.opacity = 1;
+      }
+
+      // Check if blocking
+      const box = new THREE.Box3().setFromObject(c);
+      const samples = 10;
+      let blocking = false;
+      for(let i = 1; i < samples; i++){
+        const t = i / samples;
+        const p = new THREE.Vector3().lerpVectors(camPos, lookAt, t);
+        if(box.containsPoint(p)){ blocking = true; break; }
+      }
+
+      const targetOpacity = blocking ? 0.15 : 1.0;
+      c.material.opacity = lerp(c.material.opacity, targetOpacity, 0.15);
+      c.material.depthWrite = c.material.opacity > 0.5;
+    }
+  }
+}
+
+/* --- CinematicRig: 5 modes --- */
+class CinematicRig extends CameraRig {
+  constructor(mode='orbit'){ super('cinematic'); this.mode = mode; this.t = 0; }
+  compute(dt){
+    this.t += dt;
+    const t = this.t;
+    const focus = State.event.location || G.player.position;
+    const target = new THREE.Vector3(focus.x, 3, focus.z);
+
+    if(this.mode === 'orbit'){
+      const angle = t * 0.5;
+      const pos = target.clone().add(new THREE.Vector3(Math.cos(angle)*25, 12, Math.sin(angle)*25));
+      return { pos, look:target, fov:60, roll:0 };
+    }
+    if(this.mode === 'drone'){
+      const pos = target.clone().add(new THREE.Vector3(Math.sin(t*0.3)*30, 40, Math.cos(t*0.3)*30));
+      return { pos, look:target, fov:55, roll:0 };
+    }
+    if(this.mode === 'heli'){
+      const pos = target.clone().add(new THREE.Vector3(Math.sin(t*0.15)*60, 55, Math.cos(t*0.15)*60));
+      return { pos, look:target, fov:50, roll:0 };
+    }
+    if(this.mode === 'tracking'){
+      const pos = target.clone().add(new THREE.Vector3(20, 6, 0));
+      return { pos, look:target, fov:65, roll:0 };
+    }
+    if(this.mode === 'dolly'){
+      const zoom = Math.sin(t*0.5) * 8 + 18;
+      const pos = target.clone().add(new THREE.Vector3(Math.sin(t*0.2)*zoom, 5, Math.cos(t*0.2)*zoom));
+      return { pos, look:target, fov:65, roll:0 };
+    }
+    return null;
+  }
+}
+
+/* ============================================================
+   CCTV SYSTEM (multi-viewport)
+   ============================================================ */
+class CCTVSystem {
+  constructor(renderer, scene){
+    this.renderer = renderer;
+    this.scene = scene;
+    this.cameras = [];
+    this.active = false;
+    this.frameCounter = 0;
+    this.renderEvery = 2;
+    this.container = $('cctvContainer');
+  }
+  setupForLocation(location, name){
+    this.cameras = [];
+    const positions = [
+      { pos: [location.x - 15, 8, location.z + 10], tag: 'ENTRADA' },
+      { pos: [location.x + 15, 8, location.z + 10], tag: 'LESTE' },
+      { pos: [location.x, 14, location.z - 15], tag: 'FUNDOS' },
+      { pos: [location.x - 10, 6, location.z - 8], tag: 'CAIXA' }
+    ];
+    for(const p of positions){
+      const cam = new THREE.PerspectiveCamera(65, 200/140, 0.5, 200);
+      cam.position.set(p.pos[0], p.pos[1], p.pos[2]);
+      cam.lookAt(location.x, 2, location.z);
+      this.cameras.push({ cam, tag: p.tag });
+    }
+    this.buildDOM(name);
+    this.active = true;
+    this.container.classList.add('active');
+    $('cctvState').textContent = 'ATIVO';
+    $('cctvState').style.color = '#ff3da0';
+    $('camHud').classList.add('event');
+  }
+  buildDOM(name){
+    this.container.innerHTML = '';
+    for(let i = 0; i < this.cameras.length; i++){
+      const c = this.cameras[i];
+      const feed = document.createElement('div');
+      feed.className = 'feedFrame';
+      feed.style.width = '200px';
+      feed.style.height = '140px';
+      feed.innerHTML = `
+        <div class="feedLabel">CAM 0${i+1}</div>
+        <div class="feedRec">● REC</div>
+        <div class="feedTag">${c.tag}</div>
+      `;
+      this.container.appendChild(feed);
+    }
+  }
+  deactivate(){
+    this.active = false;
+    this.container.classList.remove('active');
+    this.container.innerHTML = '';
+    $('cctvState').textContent = 'STANDBY';
+    $('cctvState').style.color = '#888';
+    $('camHud').classList.remove('event');
+  }
+  render(){
+    if(!this.active || this.cameras.length === 0) return;
+    this.frameCounter++;
+    if(this.frameCounter % this.renderEvery !== 0) return;
+
+    // Update look targets to player
+    for(const c of this.cameras){
+      c.cam.lookAt(G.player.position.x, 1.5, G.player.position.z);
+    }
+
+    const r = this.renderer;
+    r.setScissorTest(true);
+    const rects = this.container.querySelectorAll('.feedFrame');
+    for(let i = 0; i < this.cameras.length && i < rects.length; i++){
+      const rect = rects[i].getBoundingClientRect();
+      if(rect.width === 0) continue;
+      const x = rect.left;
+      const y = window.innerHeight - rect.bottom;
+      const w = rect.width;
+      const h = rect.height;
+      r.setViewport(x, y, w, h);
+      r.setScissor(x, y, w, h);
+      r.render(this.scene, this.cameras[i].cam);
+    }
+    r.setScissorTest(false);
+  }
+}
+
+/* ============================================================
+   CAMERA DIRECTOR
+   ============================================================ */
+const Director = {
+  rigs:{},
+  currentRig:'player-tps',
+  currentPose:null,
+  blendProgress:1,
+  blendDuration:0.9,
+  manual:false,
+  manualRig:null,
+  eventTimer:0,
+  modeOrder:[
+    'player-tps','player-fps','player-aim','player-stealth',
+    'vehicle-chase','vehicle-hood','vehicle-bumper','vehicle-cockpit','vehicle-side','vehicle-rear',
+    'interior-wide','interior-close','interior-ceiling','interior-security',
+    'cinematic-orbit','cinematic-drone','cinematic-heli','cinematic-tracking','cinematic-dolly'
+  ],
+  manualIndex:0,
+
+  init(){
+    this.rigs = {
+      'player-tps': new PlayerRig('tps'),
+      'player-fps': new PlayerRig('fps'),
+      'player-aim': new PlayerRig('aim'),
+      'player-stealth': new PlayerRig('stealth'),
+      'vehicle-chase': new VehicleRig('chase'),
+      'vehicle-hood': new VehicleRig('hood'),
+      'vehicle-bumper': new VehicleRig('bumper'),
+      'vehicle-cockpit': new VehicleRig('cockpit'),
+      'vehicle-side': new VehicleRig('side'),
+      'vehicle-rear': new VehicleRig('rear'),
+      'interior-wide': new InteriorRig('wide'),
+      'interior-close': new InteriorRig('close'),
+      'interior-ceiling': new InteriorRig('ceiling'),
+      'interior-security': new InteriorRig('security'),
+      'cinematic-orbit': new CinematicRig('orbit'),
+      'cinematic-drone': new CinematicRig('drone'),
+      'cinematic-heli': new CinematicRig('heli'),
+      'cinematic-tracking': new CinematicRig('tracking'),
+      'cinematic-dolly': new CinematicRig('dolly')
+    };
+  },
+  cycleManual(){
+    this.manual = true;
+    this.manualIndex = (this.manualIndex + 1) % this.modeOrder.length;
+    this.manualRig = this.modeOrder[this.manualIndex];
+    this.blendProgress = 0;
+    this.updateHud();
+  },
+  reset(){
+    if(this.rigs['vehicle-chase']) this.rigs['vehicle-chase'].reset();
+    this.manual = false;
+    this.blendProgress = 0;
+    State.vehicle.prevSpeed = 0;
+    State.vehicle.prevAngle = 0;
+  },
+  chooseAuto(dt){
+    // Prioridade
+    if(State.interior.active){
+      this.eventTimer += dt;
+      if(this.eventTimer > 4){
+        this.eventTimer = 0;
+        const opts = ['interior-wide', 'interior-close', 'interior-ceiling'];
+        this.currentRig = opts[Math.floor(Math.random()*opts.length)];
+      }
+      return this.currentRig.startsWith('interior') ? this.currentRig : 'interior-wide';
+    }
+    if(G.currentVehicle){
+      this.eventTimer += dt;
+      if(this.eventTimer > 5){
+        this.eventTimer = 0;
+        const opts = ['vehicle-chase', 'vehicle-chase', 'vehicle-chase', 'vehicle-hood', 'vehicle-side'];
+        this.currentRig = opts[Math.floor(Math.random()*opts.length)];
+      }
+      return this.currentRig.startsWith('vehicle') ? this.currentRig : 'vehicle-chase';
+    }
+    if(State.event.type === 'combat' || State.event.type === 'chase'){
+      this.eventTimer += dt;
+      if(this.eventTimer > 4){
+        this.eventTimer = 0;
+        const opts = ['cinematic-orbit', 'cinematic-drone', 'cinematic-heli', 'cinematic-tracking', 'player-aim'];
+        this.currentRig = opts[Math.floor(Math.random()*opts.length)];
+      }
+      return this.currentRig;
+    }
+    if(G.aiming || State.player.action === 'aim') return 'player-aim';
+    if(State.player.stealth) return 'player-stealth';
+    return 'player-tps';
+  },
+  update(dt){
+    const rigName = this.manual ? this.manualRig : this.chooseAuto(dt);
+    const rig = this.rigs[rigName];
+    if(!rig) return;
+    const target = rig.compute(dt);
+    if(!target) return;
+
+    if(!this.currentPose){
+      this.currentPose = {
+        pos: target.pos.clone(),
+        look: target.look.clone(),
+        fov: target.fov,
+        roll: target.roll || 0
+      };
+      this.blendProgress = 1;
+    } else {
+      this.blendProgress = Math.min(1, this.blendProgress + dt / this.blendDuration);
+      const t = smoothstep(this.blendProgress);
+      this.currentPose.pos.lerp(target.pos, t);
+      this.currentPose.look.lerp(target.look, t);
+      this.currentPose.fov = lerp(this.currentPose.fov, target.fov, t);
+      this.currentPose.roll = lerp(this.currentPose.roll, target.roll || 0, t);
+    }
+
+    G.camera.position.copy(this.currentPose.pos);
+    G.camera.lookAt(this.currentPose.look);
+    if(Math.abs(this.currentPose.roll) > 0.001){
+      G.camera.rotateZ(this.currentPose.roll);
+    }
+    if(Math.abs(G.camera.fov - this.currentPose.fov) > 0.05){
+      G.camera.fov = this.currentPose.fov;
+      G.camera.updateProjectionMatrix();
+    }
+
+    this.updateHud(rigName);
+  },
+  updateHud(rigName){
+    if(rigName){
+      $('camLabel').textContent = rigName.toUpperCase();
+      $('camHudName').textContent = '🎥 ' + rigName.toUpperCase();
+    }
+    $('camBlend').style.width = (this.blendProgress * 100) + '%';
+    $('camHudBlend').textContent = this.blendProgress.toFixed(1);
+  }
+};
+
+/* ============================================================
+   WORLD BUILDING
+   ============================================================ */
+function mesh(g,m,x=0,y=0,z=0){ const o=new THREE.Mesh(g,m); o.position.set(x,y,z); o.castShadow=true; o.receiveShadow=true; return o; }
+function addBox(w,h,d,mat,x,y,z,track){
+  const o = mesh(new THREE.BoxGeometry(w,h,d), mat, x,y,z);
+  G.scene.add(o);
+  if(track) G.buildings.push({mesh:o, w, d, h});
+  return o;
+}
+function makeHuman(cfg){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({color:cfg.skin, roughness:0.8});
+  const shirt = new THREE.MeshStandardMaterial({color:cfg.shirt, roughness:0.7});
+  const pants = new THREE.MeshStandardMaterial({color:cfg.pants, roughness:0.85});
+  g.add(mesh(new THREE.SphereGeometry(0.28,12,10),skin,0,1.85,0));
+  g.add(mesh(new THREE.CylinderGeometry(0.32,0.28,1.1,10),shirt,0,1.2,0));
+  for(const s of [-1,1]) g.add(mesh(new THREE.CylinderGeometry(0.11,0.1,0.85,8),skin,s*0.42,1.2,0));
+  for(const s of [-1,1]) g.add(mesh(new THREE.CylinderGeometry(0.13,0.14,0.9,8),pants,s*0.16,0.45,0));
+  return g;
+}
+
+function setupScene(){
+  G.scene = new THREE.Scene();
+  G.scene.fog = new THREE.FogExp2(0xc8dce8, 0.0018);
+  G.camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 2000);
+  G.renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+  G.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  G.renderer.setSize(innerWidth, innerHeight);
+  G.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  G.renderer.shadowMap.enabled = true;
+  G.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  G.renderer.outputEncoding = THREE.sRGBEncoding;
+  $('stage').appendChild(G.renderer.domElement);
+
+  G.hemi = new THREE.HemisphereLight(0xe4f2ff, 0x9aa4a2, 0.8);
+  G.scene.add(G.hemi);
+  G.sun = new THREE.DirectionalLight(0xfff2d7, 1.2);
+  G.sun.position.set(-60, 90, 45);
+  G.sun.castShadow = true;
+  G.sun.shadow.mapSize.set(2048, 2048);
+  G.sun.shadow.camera.left = -120; G.sun.shadow.camera.right = 120;
+  G.sun.shadow.camera.top = 120; G.sun.shadow.camera.bottom = -120;
+  G.sun.shadow.camera.far = 400;
+  G.scene.add(G.sun);
+
+  // Sky
+  const skyGeo = new THREE.SphereGeometry(900, 32, 16);
+  const skyMat = new THREE.ShaderMaterial({
+    uniforms:{ uDay:{value:0} },
+    vertexShader:`varying vec3 vPos;void main(){vPos=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader:`varying vec3 vPos;uniform float uDay;
+      void main(){
+        vec3 d=normalize(vPos);float y=max(d.y,0.0);
+        vec3 top=mix(vec3(0.35,0.65,0.92),vec3(0.02,0.02,0.08),uDay);
+        vec3 hor=mix(vec3(0.85,0.90,0.95),vec3(0.10,0.10,0.20),uDay);
+        gl_FragColor=vec4(mix(hor,top,smoothstep(0.0,0.7,y)),1.0);
+      }`,
+    side:THREE.BackSide, depthWrite:false
+  });
+  G.scene.add(new THREE.Mesh(skyGeo, skyMat));
+  G.skyMat = skyMat;
+
+  window.addEventListener('resize', () => {
+    G.camera.aspect = innerWidth/innerHeight;
+    G.camera.updateProjectionMatrix();
+    G.renderer.setSize(innerWidth, innerHeight);
+  });
+}
+
+function buildWorld(){
+  // Oceano
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(800,800),
+    new THREE.MeshPhysicalMaterial({color:0x0a6aa8, roughness:0.1, metalness:0.85, clearcoat:1.0})
+  );
+  water.rotation.x = -Math.PI/2; water.position.set(-250, -0.3, 0);
+  G.scene.add(water);
+
+  // Praia
+  const beach = mesh(new THREE.PlaneGeometry(60, 500), new THREE.MeshStandardMaterial({color:0xf2d8a8, roughness:0.95}), -95, 0.02, 0);
+  beach.rotation.x = -Math.PI/2; G.scene.add(beach);
+
+  // Estrada
+  const road = mesh(new THREE.PlaneGeometry(20, 500), new THREE.MeshStandardMaterial({color:0x2a2a2a, roughness:0.85}), ROAD.centerX, 0.03, 0);
+  road.rotation.x = -Math.PI/2; G.scene.add(road);
+
+  for(let z=-250; z<250; z+=6){
+    const line = mesh(new THREE.PlaneGeometry(0.25, 3), new THREE.MeshBasicMaterial({color:0xffdd44}), ROAD.centerX, 0.04, z);
+    line.rotation.x = -Math.PI/2; G.scene.add(line);
+  }
+
+  for(const x of [SIDEWALKS.east.x, SIDEWALKS.west.x]){
+    const sw = mesh(new THREE.PlaneGeometry(3, 500), new THREE.MeshStandardMaterial({color:0xc8b8a0, roughness:0.9}), x, 0.05, 0);
+    sw.rotation.x = -Math.PI/2; G.scene.add(sw);
+  }
+
+  const grass = mesh(new THREE.PlaneGeometry(400, 500), new THREE.MeshStandardMaterial({color:0x3a6a3a, roughness:0.95}), 150, 0, 0);
+  grass.rotation.x = -Math.PI/2; G.scene.add(grass);
+
+  // Edifícios
+  const colors = [0xffb0d8, 0xa0e0ff, 0xfff3a0, 0xb0ffb0, 0xffb0a0, 0xd0a0ff];
+  for(let i=0;i<18;i++){
+    const z = -240 + i * 26;
+    const w = 20 + Math.random()*10, h = 15 + Math.random()*25, d = 20 + Math.random()*8;
+    const px = 10 + Math.random()*20;
+    addBox(w, h, d, new THREE.MeshStandardMaterial({color:colors[i%6], roughness:0.7}), px, h/2, z, true);
+  }
+  for(let i=0;i<10;i++){
+    const bx = 150 + Math.random()*100, bz = -100 + i*20;
+    const bh = 40 + Math.random()*80;
+    addBox(15+Math.random()*10, bh, 15+Math.random()*10, new THREE.MeshStandardMaterial({color:0x6a7080, roughness:0.4, metalness:0.6}), bx, bh/2, bz, true);
+  }
+
+  // Malibu Club
+  buildMalibuClub(-15, 50);
+  // Jewelry store
+  buildJewelryStore(20, -50);
+
+  // Palmeiras
+  for(let z=-250; z<250; z+=30) createPalm(SIDEWALKS.west.x - 6 + rand(-2,2), z);
+
+  // Veículos
+  buildTrafficVehicles();
+  // NPCs
+  buildPedestrians();
+}
+
+function buildMalibuClub(x, z){
+  const wallMat = new THREE.MeshStandardMaterial({color:0xff99cc, roughness:0.8});
+  const floorMat = new THREE.MeshStandardMaterial({color:0x2a1a2a, roughness:0.7});
+  const ceilMat = new THREE.MeshStandardMaterial({color:0x1a0a1a, roughness:0.9});
+
+  addBox(30, 14, 25, new THREE.MeshStandardMaterial({color:0xff3da0, roughness:0.5, metalness:0.3}), x, 7, z, true);
+
+  const floor = mesh(new THREE.PlaneGeometry(24, 20), floorMat, x, 0.15, z);
+  floor.rotation.x = -Math.PI/2; G.scene.add(floor);
+
+  const ceil = addBox(24, 0.3, 20, ceilMat, x, 12, z, false);
+  const cutables = [ceil];
+
+  const walls = [
+    addBox(24, 12, 0.4, wallMat, x, 6, z-10, false),
+    addBox(24, 12, 0.4, wallMat, x, 6, z+10, false),
+    addBox(0.4, 12, 20, wallMat, x-12, 6, z, false),
+    addBox(0.4, 12, 20, wallMat, x+12, 6, z, false)
+  ];
+  cutables.push(...walls);
+
+  // Furniture
+  addBox(8, 1.5, 2, new THREE.MeshStandardMaterial({color:0x4a2a4a}), x, 1, z-8, false);
+  addBox(2, 2, 1.5, new THREE.MeshStandardMaterial({color:0x333333, metalness:0.9, roughness:0.3}), x, 1.2, z-8, false);
+
+  G.heistLocations.malibu = { cutables, pos:{x, z}, name:'Malibu Club' };
+}
+
+function buildJewelryStore(x, z){
+  const wallMat = new THREE.MeshStandardMaterial({color:0xffeecc, roughness:0.5, metalness:0.2});
+  const floorMat = new THREE.MeshStandardMaterial({color:0x333340, roughness:0.3, metalness:0.5});
+  const ceilMat = new THREE.MeshStandardMaterial({color:0x222230, roughness:0.7});
+
+  addBox(20, 10, 15, new THREE.MeshStandardMaterial({color:0x3dc7ff, roughness:0.4, metalness:0.6}), x, 5, z, true);
+
+  const floor = mesh(new THREE.PlaneGeometry(18, 13), floorMat, x, 0.15, z);
+  floor.rotation.x = -Math.PI/2; G.scene.add(floor);
+
+  const ceil = addBox(18, 0.3, 13, ceilMat, x, 9.5, z, false);
+  const cutables = [ceil];
+
+  const walls = [
+    addBox(18, 10, 0.4, wallMat, x, 5, z-6.5, false),
+    addBox(18, 10, 0.4, wallMat, x, 5, z+6.5, false),
+    addBox(0.4, 10, 13, wallMat, x-9, 5, z, false),
+    addBox(0.4, 10, 13, wallMat, x+9, 5, z, false)
+  ];
+  cutables.push(...walls);
+
+  for(let i=0;i<3;i++){
+    addBox(2, 1, 2, new THREE.MeshStandardMaterial({color:0x88ccff, emissive:0x3dc7ff, emissiveIntensity:0.3, transparent:true, opacity:0.8}), x-5+i*5, 0.6, z+2, false);
+  }
+
+  G.heistLocations.jewelry = { cutables, pos:{x, z}, name:'Joalharia' };
+}
+
+function createPalm(x, z){
+  const trunkMat = new THREE.MeshStandardMaterial({color:0x6b4423, roughness:0.9});
+  G.scene.add(mesh(new THREE.CylinderGeometry(0.3, 0.5, 9, 8), trunkMat, x, 4.5, z));
+  const leafMat = new THREE.MeshStandardMaterial({color:0x2d8a3d, roughness:0.85});
+  for(let i=0;i<7;i++){
+    const leaf = mesh(new THREE.ConeGeometry(0.6, 4, 4), leafMat, x, 9, z);
+    leaf.rotation.z = (i/7) * Math.PI * 2;
+    leaf.rotation.x = Math.PI/2.5;
+    G.scene.add(leaf);
+  }
+}
+
+function buildTrafficVehicles(){
+  const colors = [0xff3da0, 0x3dc7ff, 0x3dff9e, 0xffcb65, 0xc93dff, 0xff8a3d, 0xff3d5a, 0x77e4b0];
+  for(let i=0;i<4;i++){
+    const car = buildVehicle(colors[i]);
+    car.lane = 'north'; car.position = i * 120; car.speed = 8;
+  }
+  for(let i=0;i<4;i++){
+    const car = buildVehicle(colors[4+i]);
+    car.lane = 'south'; car.position = 60 + i * 120; car.speed = 8;
+  }
+}
+function buildVehicle(color){
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({color, roughness:0.3, metalness:0.6});
+  g.add(mesh(new THREE.BoxGeometry(2.4, 1.0, 4.8), bodyMat, 0, 0.85, 0));
+  g.add(mesh(new THREE.BoxGeometry(2.0, 0.7, 2.2), new THREE.MeshStandardMaterial({color:0x1a2a3a, roughness:0.1, metalness:0.7}), 0, 1.6, -0.3));
+  for(const sx of [-1,1]) for(const sz of [-1.5,1.5]){
+    const w = mesh(new THREE.CylinderGeometry(0.5,0.5,0.25,12), new THREE.MeshStandardMaterial({color:0x191d20, roughness:0.9}), sx*1.2, 0.5, sz);
+    w.rotation.z = Math.PI/2; g.add(w);
+  }
+  g.position.set(0, 0, 0);
+  G.scene.add(g);
+  const car = { group:g, speed:0, angle:0, occupied:false, isPolice:false, lane:'north', position:0, maxSpeed:15, accel:5, prevSpeed:0, prevAngle:0 };
+  G.vehicles.push(car);
+  return car;
+}
+function buildPedestrians(){
+  for(let i=0;i<15;i++){
+    const x = SIDEWALKS.east.x + rand(-1,1);
+    const z = -240 + i * 32 + rand(-8,8);
+    const npc = makeHuman({skin:[0xc69a77,0x8b5b42,0xe1b89a][i%3], shirt:[0x6c8b9e,0xa68d69,0xff3da0][i%3], pants:0x354454});
+    npc.position.set(x, 0, z);
+    G.scene.add(npc);
+    G.npcs.push({ group:npc, baseX:x, baseZ:z, side:'east', dir: Math.random()>0.5?1:-1, speed: 0.8 + Math.random()*0.5, state:'walking', fleeing:false, filming:false, alert:0 });
+  }
+  for(let i=0;i<15;i++){
+    const x = SIDEWALKS.west.x + rand(-1,1);
+    const z = -240 + i * 32 + rand(-8,8);
+    const npc = makeHuman({skin:[0xc69a77,0xe1b89a][i%2], shirt:[0x6c8b9e,0x3dc7ff][i%2], pants:0x393e4d});
+    npc.position.set(x, 0, z);
+    G.scene.add(npc);
+    G.npcs.push({ group:npc, baseX:x, baseZ:z, side:'west', dir: Math.random()>0.5?1:-1, speed: 0.8 + Math.random()*0.5, state:'walking', fleeing:false, filming:false, alert:0 });
+  }
+}
+
+function createPlayer(){
+  const cfg = G.character === 'jason'
+    ? {skin:0xc79a7a, shirt:0x2a4a6a, pants:0x2a2a35, name:'JASON DUVAL', role:'CAUTELOSO · MILITAR', scale:1.08, damage:1.3, speed:1.0}
+    : {skin:0xb88a6a, shirt:0xff3da0, pants:0x2a2a35, name:'LUCIA CAMINOS', role:'IMPULSIVA · ÁGIL', scale:0.96, damage:1.0, speed:1.15};
+  if(G.player) G.scene.remove(G.player);
+  const p = makeHuman(cfg);
+  p.scale.setScalar(cfg.scale);
+  p.userData.cfg = cfg;
+  p.position.set(-50, 0, -30);
+  G.scene.add(p);
+  G.player = p;
+  $('playerName').textContent = cfg.name;
+  $('playerRole').textContent = cfg.role;
+}
+
+function spawnEnemy(x, z){
+  const enemy = makeHuman({skin:0xa07858, shirt:0xff3d5a, pants:0x1a1a2a});
+  enemy.position.set(x, 0, z);
+  G.scene.add(enemy);
+  const hpBar = new THREE.Mesh(new THREE.PlaneGeometry(1,0.1), new THREE.MeshBasicMaterial({color:0xff3d5a, side:THREE.DoubleSide}));
+  hpBar.position.y = 2.5; enemy.add(hpBar);
+  G.enemies.push({group:enemy, hp:60, maxHp:60, hpBar, attackCooldown:0, alive:true});
+}
+
+/* ============================================================
+   STATE TRACKING
+   ============================================================ */
+function updateState(dt){
+  // Player state
+  const p = G.player.position;
+  const v = p.clone().sub(State.player.lastPos).divideScalar(Math.max(dt, 0.001));
+  State.player.vel.copy(v);
+  State.player.pos.copy(p);
+  State.player.lastPos.copy(p);
+
+  if(G.currentVehicle){
+    State.player.action = 'driving';
+    State.player.inVehicle = true;
+    State.player.stealth = false;
+  } else if(G.aiming){
+    State.player.action = 'aim';
+  } else if(G.attackCooldown > 0.2){
+    State.player.action = 'shoot';
+  } else if(v.length() > 5){
+    State.player.action = 'run';
+  } else if(v.length() > 0.5){
+    State.player.action = 'walk';
+  } else if(State.player.stealth){
+    State.player.action = 'stealth';
+  } else {
+    State.player.action = 'idle';
+  }
+
+  State.player.weapon = ['none', 'pistol', 'shotgun'][G.weapon];
+
+  // Vehicle physics tracking
+  if(G.currentVehicle){
+    const car = G.currentVehicle;
+    State.vehicle.speed = Math.abs(car.speed);
+    State.vehicle.angle = car.angle;
+    State.vehicle.isMoving = State.vehicle.speed > 1;
+
+    // Collision detection: if sudden speed drop while moving
+    const expectedDecel = car.accel * dt;
+    const actualDelta = State.vehicle.prevSpeed - State.vehicle.speed;
+    if(actualDelta > expectedDecel * 3 && State.vehicle.prevSpeed > 5){
+      State.vehicle.collisionImpulse = clamp(State.vehicle.prevSpeed / 20, 0.1, 1);
+    }
+    State.vehicle.prevSpeed = State.vehicle.speed;
+    State.counters.driveDistance += State.vehicle.speed * dt;
+  } else {
+    State.vehicle.prevSpeed = 0;
+  }
+
+  // NPC states
+  for(const n of G.npcs){
+    const d = dist2D(n.group.position.x, n.group.position.z, p.x, p.z);
+    if(n.filming){
+      n.state = 'filming';
+    } else if(d < 15 && (State.player.weapon !== 'none' || State.event.type === 'combat' || State.event.type === 'chase')){
+      if(!n.fleeing){
+        n.fleeing = true;
+        n.alert = 100;
+      }
+      n.state = 'fleeing';
+    } else if(d < 5 && State.player.action === 'run'){
+      n.state = 'alert';
+      n.alert = Math.min(100, n.alert + dt * 50);
+    } else {
+      n.state = 'walking';
+      n.fleeing = false;
+      n.alert = Math.max(0, n.alert - dt * 30);
+    }
+  }
+
+  // Police
+  State.police.count = G.policeCars.length;
+  State.police.state = State.police.count > 0 ? 'pursuit' : (G.wanted > 0 ? 'alert' : 'patrol');
+  State.police.pursuit = State.police.count > 0;
+
+  // Event detection
+  detectEvents();
+}
+
+function detectEvents(){
+  if(State.interior.active){
+    setEvent('heist', {x:State.interior.room.pos.x, z:State.interior.room.pos.z}, 100);
+    return;
+  }
+  if(G.policeCars.length > 0 && G.wanted > 0){
+    setEvent('chase', G.player.position.clone(), G.wanted * 20);
+    return;
+  }
+  const nearEnemies = G.enemies.filter(e => e.alive && dist2D(e.group.position.x, e.group.position.z, G.player.position.x, G.player.position.z) < 20);
+  if(nearEnemies.length > 0){
+    setEvent('combat', G.player.position.clone(), nearEnemies.length * 25);
+    return;
+  }
+  if(State.player.stealth){
+    setEvent('stealth', G.player.position.clone(), 40);
+    return;
+  }
+  setEvent('normal', G.player.position.clone(), 0);
+}
+
+function setEvent(type, location, intensity){
+  if(State.event.type !== type){
+    State.event.startTime = G.elapsed;
+    onEventChange(State.event.type, type);
+  }
+  State.event.type = type;
+  State.event.intensity = intensity;
+  State.event.location = location;
+
+  // Update HUD
+  const hud = $('eventHud');
+  if(type === 'normal'){
+    hud.classList.remove('active');
+  } else {
+    hud.classList.add('active');
+    $('evtType').textContent = { heist:'ASSALTO', chase:'PERSEGUIÇÃO', combat:'CONFLITO', stealth:'STEALTH' }[type];
+    $('evtLoc').textContent = type === 'heist' && State.interior.room ? State.interior.room.name : 'Dinâmico';
+    $('evtIntensity').style.width = intensity + '%';
+    $('evtDuration').textContent = Math.floor(G.elapsed - State.event.startTime) + 's';
+    $('evtCams').textContent = (CCTV.cameras.length + 1);
+  }
+}
+
+function onEventChange(from, to){
+  addFeed('📡 EVENTO', to.toUpperCase(), to !== 'normal');
+}
+
+/* ============================================================
+   CCTV INSTANCE
+   ============================================================ */
+const CCTV = new CCTVSystem(null, null); // Will be set after setup
+
+/* ============================================================
+   UPDATE LOOPS
+   ============================================================ */
+function updatePlayer(dt){
+  if(!G.player) return;
+  if(G.currentVehicle){
+    const v = G.currentVehicle;
+    const accel = 22, maxSpeed = 42, friction = 0.94;
+    if(G.keys['w'] || G.keys['arrowup']) v.speed += accel * dt;
+    if(G.keys['s'] || G.keys['arrowdown']) v.speed -= accel * dt;
+    v.speed *= Math.pow(friction, dt*10);
+    v.speed = clamp(v.speed, -18, maxSpeed);
+    if(G.keys['a'] || G.keys['arrowleft']) v.angle += 2.5 * dt * (Math.abs(v.speed)/10 + 0.3);
+    if(G.keys['d'] || G.keys['arrowright']) v.angle -= 2.5 * dt * (Math.abs(v.speed)/10 + 0.3);
+    v.group.rotation.y = v.angle;
+    v.group.position.x += Math.sin(v.angle) * v.speed * dt;
+    v.group.position.z += Math.cos(v.angle) * v.speed * dt;
+    G.player.position.copy(v.group.position);
+    G.player.position.y = 1.5;
+    G.player.rotation.y = v.angle;
+    return;
+  }
+  const cfg = G.player.userData.cfg;
+  const runMul = G.keys['shift'] && G.stamina > 0 ? 1.8 : 1;
+  if(G.keys['shift'] && G.stamina > 0 && (G.keys['w']||G.keys['a']||G.keys['s']||G.keys['d'])) G.stamina = Math.max(0, G.stamina - 15*dt);
+  else G.stamina = Math.min(G.maxStamina, G.stamina + 10*dt);
+  const speed = (State.player.stealth ? 3.5 : 7) * cfg.speed * runMul;
+  const fw = new THREE.Vector3(Math.sin(G.camYaw), 0, Math.cos(G.camYaw));
+  const rt = new THREE.Vector3(Math.cos(G.camYaw), 0, -Math.sin(G.camYaw));
+  const mv = new THREE.Vector3();
+  if(G.keys['w'] || G.keys['arrowup']) mv.add(fw);
+  if(G.keys['s'] || G.keys['arrowdown']) mv.sub(fw);
+  if(G.keys['d'] || G.keys['arrowright']) mv.add(rt);
+  if(G.keys['a'] || G.keys['arrowleft']) mv.sub(rt);
+  if(mv.lengthSq() > 0){
+    mv.normalize();
+    G.player.position.x += mv.x * speed * dt;
+    G.player.position.z += mv.z * speed * dt;
+    G.player.rotation.y = Math.atan2(mv.x, mv.z);
+  }
+  G.player.position.y = Math.max(0, G.player.position.y + (G.jumpVel || 0) * dt);
+  if(G.jumpVel) G.jumpVel -= 25 * dt;
+  if(G.player.position.y <= 0){ G.player.position.y = 0; G.jumpVel = 0; }
+  // Wall collision (ignore faded walls during interior cutaway)
+  for(const b of G.buildings){
+    const bx = b.mesh.position.x, bz = b.mesh.position.z;
+    const bw = b.w/2 + 0.9, bd = b.d/2 + 0.9;
+    if(Math.abs(G.player.position.x - bx) < bw && Math.abs(G.player.position.z - bz) < bd){
+      const px = G.player.position.x - bx;
+      const pz = G.player.position.z - bz;
+      if(Math.abs(px)/bw > Math.abs(pz)/bd) G.player.position.x = bx + Math.sign(px)*bw;
+      else G.player.position.z = bz + Math.sign(pz)*bd;
+    }
+  }
+}
+
+function updateTrafficAI(dt){
+  for(const car of G.vehicles){
+    if(car.occupied) continue;
+    const lane = LANES[car.lane];
+    if(!lane) continue;
+    car.position += car.speed * dt;
+    if(car.position > LANE_LENGTH) car.position = 0;
+    const z = lane.zStart + lane.dir * car.position;
+    car.group.position.x = lane.x;
+    car.group.position.z = z;
+    car.group.rotation.y = lane.dir > 0 ? 0 : Math.PI;
+  }
+}
+
+function updatePedestriansAI(dt){
+  for(const n of G.npcs){
+    if(n.fleeing){
+      // Foge do player
+      const dx = n.group.position.x - G.player.position.x;
+      const dz = n.group.position.z - G.player.position.z;
+      const d = Math.sqrt(dx*dx + dz*dz);
+      if(d > 0.1){
+        n.group.position.x += (dx/d) * 5 * dt;
+        n.group.position.z += (dz/d) * 5 * dt;
+        n.group.rotation.y = Math.atan2(dx, dz);
+      }
+      continue;
+    }
+    if(n.filming) continue;
+    const side = SIDEWALKS[n.side];
+    if(!side) continue;
+    n.group.position.x = side.x;
+    n.group.position.z += n.dir * n.speed * dt;
+    n.group.rotation.y = n.dir > 0 ? 0 : Math.PI;
+    if(n.group.position.z > 240){ n.group.position.z = 240; n.dir = -1; }
+    else if(n.group.position.z < -240){ n.group.position.z = -240; n.dir = 1; }
+  }
+}
+
+function updateEnemies(dt){
+  for(const e of G.enemies){
+    if(!e.alive) continue;
+    const dx = G.player.position.x - e.group.position.x;
+    const dz = G.player.position.z - e.group.position.z;
+    const d = Math.sqrt(dx*dx + dz*dz);
+    if(d < 20 && d > 1.5){
+      e.group.position.x += (dx/d) * 2 * dt;
+      e.group.position.z += (dz/d) * 2 * dt;
+      e.group.rotation.y = Math.atan2(dx, dz);
+    } else if(d <= 1.5){
+      e.attackCooldown -= dt;
+      if(e.attackCooldown <= 0){
+        e.attackCooldown = 1.5;
+        G.health = Math.max(0, G.health - 5);
+        if(G.health <= 0) autoRespawn();
+      }
+    }
+    e.hpBar.lookAt(G.camera.position);
+  }
+}
+
+function updatePoliceChase(dt){
+  if(G.wanted > 0 && Math.random() < 0.02 && G.policeCars.length < G.wanted * 2){
+    const a = Math.random() * Math.PI * 2;
+    spawnPoliceCar(G.player.position.x + Math.cos(a) * 60, G.player.position.z + Math.sin(a) * 60);
+  }
+  for(let i = G.policeCars.length - 1; i >= 0; i--){
+    const pc = G.policeCars[i];
+    const dx = G.player.position.x - pc.group.position.x;
+    const dz = G.player.position.z - pc.group.position.z;
+    const d = Math.sqrt(dx*dx + dz*dz);
+    if(d > 100){ G.scene.remove(pc.group); G.policeCars.splice(i, 1); continue; }
+    pc.group.position.x += (dx/d) * 10 * dt;
+    pc.group.position.z += (dz/d) * 10 * dt;
+    pc.group.rotation.y = Math.atan2(dx, dz);
+    if(d < 3 && !G.currentVehicle){
+      pc.attackCooldown = (pc.attackCooldown || 0) - dt;
+      if(pc.attackCooldown <= 0){
+        pc.attackCooldown = 2;
+        G.health = Math.max(0, G.health - 8);
+        if(G.health <= 0) autoRespawn();
+      }
+    }
+  }
+}
+function spawnPoliceCar(x, z){
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.BoxGeometry(2.4,1.0,4.8), new THREE.MeshStandardMaterial({color:0x1a1a2a}), 0, 0.85, 0));
+  g.add(mesh(new THREE.BoxGeometry(2.5,0.3,4.9), new THREE.MeshStandardMaterial({color:0xffffff}), 0, 1.0, 0));
+  const light = mesh(new THREE.BoxGeometry(0.4,0.2,0.3), new THREE.MeshBasicMaterial({color:0xff0000}), -0.5, 2.2, 0);
+  g.add(light);
+  g.position.set(x, 0, z);
+  G.scene.add(g);
+  G.policeCars.push({group:g, light, attackCooldown:0});
+}
+
+function autoRespawn(){
+  G.health = G.maxHealth;
+  G.wanted = 0;
+  G.player.position.set(SIDEWALKS.east.x, 0, -30);
+  exitInterior();
+}
+
+/* ============================================================
+   INTERIOR MANAGEMENT
+   ============================================================ */
+function enterInterior(heistData, mission){
+  State.interior.active = true;
+  State.interior.room = heistData;
+  State.interior.cutables = heistData.cutables;
+  G.interiorActive = true;
+
+  // Spawn enemies
+  for(let i=0;i<4;i++) spawnEnemy(heistData.pos.x + rand(-6,6), heistData.pos.z + rand(-6,6));
+
+  // Activate CCTV
+  CCTV.setupForLocation(heistData.pos, heistData.name);
+
+  // Move player inside
+  G.player.position.set(heistData.pos.x, 0, heistData.pos.z + 6);
+
+  addFeed('🏢 INTERIOR', 'Entraste no ' + heistData.name + '. CCTV ativo.', true);
+}
+function exitInterior(){
+  if(!State.interior.active) return;
+  for(const c of State.interior.cutables){
+    if(c.material){
+      c.material.opacity = 1;
+      c.material.transparent = false;
+      c.material.depthWrite = true;
+    }
+  }
+  State.interior.active = false;
+  State.interior.room = null;
+  State.interior.cutables = [];
+  G.interiorActive = false;
+  CCTV.deactivate();
+  // Move player out
+  G.player.position.set(-40, 0, 0);
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+function setupInput(){
+  document.addEventListener('keydown', e => {
+    G.keys[e.key.toLowerCase()] = true;
+    if(e.key === 'Tab'){ e.preventDefault(); switchCharacter(); }
+    if(e.key === 'f' || e.key === 'F') toggleFocus();
+    if(e.key === 'e' || e.key === 'E') toggleVehicle();
+    if(e.key === 'g' || e.key === 'G') tryGym();
+    if(e.key === 'm' || e.key === 'M') document.body.classList.toggle('ui-hidden');
+    if(e.key === 'c' || e.key === 'C') Director.cycleManual();
+    if(e.key === 'v' || e.key === 'V') Director.reset();
+    if(e.key === 'r' || e.key === 'R') toggleCCTV();
+    if(e.key === 'Control') State.player.stealth = true;
+    if(e.key === '1'){ G.weapon = 0; }
+    if(e.key === '2'){ G.weapon = 1; }
+    if(e.key === '3'){ G.weapon = 2; }
+    if(e.key === ' ' && G.player && G.player.position.y <= 0.1 && !G.currentVehicle) G.jumpVel = 9;
+  });
+  document.addEventListener('keyup', e => {
+    G.keys[e.key.toLowerCase()] = false;
+    if(e.key === 'Control') State.player.stealth = false;
+  });
+  document.addEventListener('mousedown', e => {
+    if(!G.started) return;
+    if(e.button === 0){ attack(); }
+    if(e.button === 2) G.aiming = true;
+  });
+  document.addEventListener('mouseup', e => {
+    if(e.button === 2) G.aiming = false;
+  });
+  document.addEventListener('mousemove', e => {
+    if(!G.pointerLock || !G.started) return;
+    G.camYaw -= e.movementX * 0.0025;
+    G.camPitch = clamp(G.camPitch + e.movementY * 0.0025, -0.3, 1.2);
+  });
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  const canvas = G.renderer.domElement;
+  canvas.addEventListener('click', () => { if(G.started && !G.pointerLock) canvas.requestPointerLock(); });
+  document.addEventListener('pointerlockchange', () => { G.pointerLock = document.pointerLockElement === canvas; });
+}
+
+/* ============================================================
+   ACTIONS
+   ============================================================ */
+function attack(){
+  if(!G.started || !G.player || G.attackCooldown > 0) return;
+  const cfg = G.player.userData.cfg;
+  G.attackCooldown = 0.4 / cfg.speed;
+  State.player.lastShotTime = G.elapsed;
+  State.counters.shotsFired++;
+
+  if(G.weapon === 0){
+    const fwd = new THREE.Vector3(Math.sin(G.camYaw), 0, Math.cos(G.camYaw));
+    for(const e of G.enemies){
+      if(!e.alive) continue;
+      const dx = e.group.position.x - G.player.position.x;
+      const dz = e.group.position.z - G.player.position.z;
+      const d = Math.sqrt(dx*dx + dz*dz);
+      if(d < 2.4 && (dx*fwd.x + dz*fwd.z)/d > 0.4){
+        damageEnemy(e, (8 + G.strength*3) * cfg.damage);
+      }
+    }
+  } else {
+    const ppos = G.player.position.clone(); ppos.y = 1.5;
+    const dir = new THREE.Vector3(Math.sin(G.camYaw), 0, Math.cos(G.camYaw));
+    let best = null, bestDist = Infinity;
+    for(const e of G.enemies){
+      if(!e.alive) continue;
+      const ep = e.group.position.clone(); ep.y = 1.2;
+      const toE = ep.sub(ppos);
+      const d = toE.length();
+      if(toE.normalize().dot(dir) > 0.85 && d < 40 && d < bestDist){ bestDist = d; best = e; }
+    }
+    if(best) damageEnemy(best, G.weapon === 2 ? 45 : 20);
+    // NPCs film
+    for(const n of G.npcs){
+      if(!n.filming && dist2D(n.group.position.x, n.group.position.z, G.player.position.x, G.player.position.z) < 20 && Math.random() < 0.5){
+        n.filming = true;
+        setTimeout(() => { n.filming = false; }, 3000 + Math.random() * 3000);
+      }
+    }
+  }
+}
+function damageEnemy(e, dmg){
+  e.hp -= dmg;
+  e.hpBar.scale.x = Math.max(0, e.hp/e.maxHp);
+  e.hpBar.position.x = -(1 - Math.max(0, e.hp/e.maxHp))/2;
+  if(e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e){
+  if(!e.alive) return;
+  e.alive = false;
+  e.group.rotation.x = Math.PI/2;
+  setTimeout(() => {
+    G.scene.remove(e.group);
+    const idx = G.enemies.indexOf(e);
+    if(idx >= 0) G.enemies.splice(idx, 1);
+  }, 2000);
+  G.money += 250;
+  if(State.player.stealth) State.counters.stealthKills++;
+  if(G.missionRunning && G.missionStats) G.missionStats.kills++;
+}
+function toggleFocus(){
+  if(G.focus < 20) return;
+  G.focusActive = !G.focusActive;
+  if(G.focusActive) $('focusVignette').classList.add('show');
+  else $('focusVignette').classList.remove('show');
+}
+function switchCharacter(){
+  if(G.currentVehicle || State.interior.active) return;
+  G.character = G.character === 'jason' ? 'lucia' : 'jason';
+  const pos = G.player.position.clone();
+  createPlayer();
+  G.player.position.copy(pos);
+}
+function toggleVehicle(){
+  if(State.interior.active) return;
+  if(G.currentVehicle){
+    const v = G.currentVehicle;
+    v.occupied = false;
+    v.speed = 0;
+    const exitX = v.group.position.x < ROAD.centerX ? SIDEWALKS.west.x : SIDEWALKS.east.x;
+    G.player.position.set(exitX, 0, v.group.position.z);
+    G.currentVehicle = null;
+    Director.reset();
+    State.counters.doorsOpened++;
+  } else {
+    let near = null, nd = 5;
+    for(const v of G.vehicles){
+      if(v.occupied) continue;
+      const d = v.group.position.distanceTo(G.player.position);
+      if(d < nd){ nd = d; near = v; }
+    }
+    if(near){
+      near.occupied = true;
+      G.currentVehicle = near;
+      G.player.position.copy(near.group.position);
+      G.player.position.y = 1.5;
+      if(G.wanted < 5) G.wanted = Math.min(5, G.wanted + 1);
+      Director.reset();
+      State.counters.doorsOpened++;
+    }
+  }
+}
+function tryGym(){
+  if(G.money < 200) return;
+  G.money -= 200;
+  const s = Math.random();
+  if(s < 0.4) G.strength = Math.min(10, G.strength + 0.5);
+  else if(s < 0.8) G.cardio = Math.min(10, G.cardio + 0.5);
+  else G.focusLevel = Math.min(10, G.focusLevel + 0.5);
+}
+function toggleCCTV(){
+  if(CCTV.active){
+    CCTV.deactivate();
+  } else {
+    const loc = {x: G.player.position.x, z: G.player.position.z};
+    CCTV.setupForLocation(loc, 'MANUAL');
+    addFeed('📡 CCTV', 'Rede manual ativa.', true);
+  }
+}
+
+/* ============================================================
+   MISSIONS
+   ============================================================ */
+function startMissionPrompt(idx){
+  if(idx < 0 || idx >= MISSIONS.length){ addFeed('🏁', 'Todas as missões!', true); return; }
+  G.missionIndex = idx;
+  const m = MISSIONS[idx];
+  $('approachTitle').textContent = m.name;
+  $('approachDesc').textContent = m.desc;
+  document.querySelectorAll('.approach-btns button').forEach(btn => {
+    btn.style.display = m.approaches.includes(btn.dataset.approach) ? 'block' : 'none';
+  });
+  $('approachModal').classList.add('show');
+}
+function chooseApproach(approach){
+  $('approachModal').classList.remove('show');
+  const m = MISSIONS[G.missionIndex];
+  G.currentMission = m;
+  G.missionRunning = true;
+  G.missionStats = {kills:0, approach};
+  $('mission').classList.add('show');
+  $('missionTitle').textContent = '📋 ' + m.name;
+  $('missionObj').textContent = m.desc;
+
+  if(m.interior && m.location){
+    const heistKey = m.id === 'malibu' ? 'malibu' : m.id === 'jewelry' ? 'jewelry' : null;
+    const heistData = heistKey ? G.heistLocations[heistKey] : null;
+    if(heistData) enterInterior(heistData, m);
+  }
+  addFeed('📋 MISSÃO', m.name, true);
+}
+function endMission(success){
+  if(!G.missionRunning) return;
+  G.missionRunning = false;
+  if(success){
+    G.money += G.currentMission.reward;
+    $('reportIcon').textContent = '🏆';
+    $('reportTitle').textContent = 'MISSÃO CUMPRIDA';
+    $('reportTitle').style.color = '#3dff9e';
+  } else {
+    $('reportIcon').textContent = '💥';
+    $('reportTitle').textContent = 'MISSÃO FALHADA';
+    $('reportTitle').style.color = '#ff3d5a';
+  }
+  $('repReward').textContent = success ? '$' + G.currentMission.reward : '—';
+  $('repApproach').textContent = G.missionStats.approach.toUpperCase();
+  $('repRel').textContent = G.relationship + '%';
+  $('repMission').textContent = G.currentMission.name;
+  $('reportModal').classList.add('show');
+  $('mission').classList.remove('show');
+  exitInterior();
+}
+function tickMission(){
+  if(!G.missionRunning || !G.currentMission) return;
+  if(G.missionStats.kills >= 4) endMission(true);
+}
+
+/* ============================================================
+   HUD & FEED
+   ============================================================ */
+function updateHUD(){
+  if(!G.player) return;
+  $('hp').querySelector('i').style.width = (G.health/G.maxHealth*100) + '%';
+  $('st').querySelector('i').style.width = (G.stamina/G.maxStamina*100) + '%';
+  $('fc').querySelector('i').style.width = (G.focus/G.maxFocus*100) + '%';
+  $('money').textContent = '$' + G.money;
+  $('relVal').textContent = G.relationship + '%';
+  $('wanted').textContent = G.wanted > 0 ? '★'.repeat(G.wanted) + '☆'.repeat(5-G.wanted) : '—';
+
+  // State HUD
+  const actionLabels = {idle:'PARADO', walk:'A ANDAR', run:'A CORRER', aim:'A MIRAR', shoot:'A DISPARAR', driving:'A CONDUZIR', stealth:'STEALTH'};
+  $('stPlayer').textContent = actionLabels[State.player.action] || '—';
+  $('stWeapon').textContent = State.player.weapon.toUpperCase();
+  $('stStealth').textContent = State.player.stealth ? 'SIM' : 'NÃO';
+  $('stVehicle').textContent = G.currentVehicle ? Math.round(Math.abs(G.currentVehicle.speed) * 10) + ' km/h' : '—';
+  $('stNpcs').textContent = G.npcs.filter(n => n.state === 'fleeing').length + ' em fuga';
+  $('stPolice').textContent = State.police.state.toUpperCase() + ' (' + State.police.count + ')';
+  $('stEnemies').textContent = G.enemies.filter(e => e.alive).length;
+
+  if(G.aiming || G.focusActive) $('crosshair').classList.add('show');
+  else $('crosshair').classList.remove('show');
+}
+function addFeed(tag, text, viral){
+  const container = $('feed');
+  const item = document.createElement('div');
+  item.className = 'feedItem' + (viral ? ' viral' : '');
+  item.innerHTML = `<span class="tag">${tag}</span>${text}`;
+  container.appendChild(item);
+  setTimeout(() => {
+    item.style.transition = 'opacity 0.4s, transform 0.4s';
+    item.style.opacity = '0';
+    item.style.transform = 'translateX(20px)';
+    setTimeout(() => item.remove(), 400);
+  }, 5000);
+  while(container.children.length > 3) container.firstChild.remove();
+}
+function showNotice(txt, dur=1500){
+  const el = $('notice'); el.textContent = txt; el.classList.add('show');
+  clearTimeout(showNotice._t);
+  showNotice._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+/* ============================================================
+   MAIN LOOP
+   ============================================================ */
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(G.clock.getDelta(), 0.05);
+
+  if(G.started && !G.paused){
+    G.elapsed += dt;
+
+    if(G.focusActive){
+      G.focus = Math.max(0, G.focus - 20 * dt);
+      if(G.focus <= 0){ G.focusActive = false; $('focusVignette').classList.remove('show'); }
+    } else if(!G.aiming){
+      G.focus = Math.min(G.maxFocus, G.focus + 8*dt);
+    }
+    if(G.attackCooldown > 0) G.attackCooldown -= dt;
+
+    updatePlayer(dt);
+    updateEnemies(dt);
+    updatePoliceChase(dt);
+    updateTrafficAI(dt);
+    updatePedestriansAI(dt);
+    updateState(dt);
+    tickMission();
+
+    // Camera Director
+    Director.update(dt);
+
+    // Markers
+    for(const mm of G.scene.userData.missionMarkers || []){
+      mm.ring.rotation.y += dt*0.5;
+      mm.icon.rotation.y += dt*1;
+    }
+
+    // Mission proximity
+    if(!G.missionRunning && !$('approachModal').classList.contains('show') && !State.interior.active){
+      const mm = G.scene.userData.missionMarkers?.[G.missionIndex];
+      if(mm && dist2D(G.player.position.x, G.player.position.z, mm.x, mm.z) < 4){
+        startMissionPrompt(G.missionIndex);
+      }
+    }
+
+    G.health = Math.min(G.maxHealth, G.health + 1.5*dt);
+    updateHUD();
+
+    // Dia/Noite
+    if(G.skyMat){
+      G.skyMat.uniforms.uDay.value += (0 - G.skyMat.uniforms.uDay.value) * dt * 0.5;
+    }
+  } else if(!G.started){
+    G.elapsed += dt * 0.3;
+    G.camera.position.set(Math.sin(G.elapsed)*40, 30, Math.cos(G.elapsed)*50);
+    G.camera.lookAt(0, 5, 0);
+  }
+
+  // === RENDER ===
+  G.renderer.setViewport(0, 0, innerWidth, innerHeight);
+  G.renderer.setScissorTest(false);
+  G.renderer.render(G.scene, G.camera);
+
+  // CCTV overlays
+  CCTV.render();
+}
+
+/* ============================================================
+   INIT & HANDLERS
+   ============================================================ */
+document.querySelectorAll('.charBtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.charBtn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    G.character = btn.dataset.char;
+  });
+});
+$('begin').addEventListener('click', () => {
+  $('start').style.display = 'none';
+  G.started = true;
+  createPlayer();
+  CCTV.renderer = G.renderer;
+  CCTV.scene = G.scene;
+  Director.init();
+  addFeed('🎥 CÂMARAS', 'Sistema ativo. C cicla, V reset, R CCTV manual.', true);
+  // Add mission markers
+  G.scene.userData.missionMarkers = [];
+  for(const m of MISSIONS){
+    if(m.location) buildMissionMarker(m.location.x, m.location.z);
+  }
+  setTimeout(() => startMissionPrompt(0), 1500);
+});
+function buildMissionMarker(x, z){
+  const grp = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(3,3,0.2,32), new THREE.MeshBasicMaterial({color:0xffaa3d, transparent:true, opacity:0.7}));
+  ring.position.y = 0.1; grp.add(ring);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(2,3,35,24,1,true), new THREE.MeshBasicMaterial({color:0xffaa3d, transparent:true, opacity:0.15, side:THREE.DoubleSide}));
+  beam.position.y = 17.5; grp.add(beam);
+  const icon = new THREE.Mesh(new THREE.OctahedronGeometry(1.5), new THREE.MeshBasicMaterial({color:0xffaa3d}));
+  icon.position.y = 4; grp.add(icon);
+  grp.position.set(x, 0, z);
+  G.scene.add(grp);
+  G.scene.userData.missionMarkers.push({grp, ring, icon, x, z});
+}
+$('camCycle').addEventListener('click', () => Director.cycleManual());
+$('camReset').addEventListener('click', () => { Director.reset(); showNotice('↺ CÂMARA RESET', 1000); });
+$('camRecord').addEventListener('click', () => toggleCCTV());
+$('pause').addEventListener('click', () => { G.paused = !G.paused; $('pause').textContent = G.paused ? '▶ RETOMAR' : '⏸ PAUSA'; });
+$('camera').addEventListener('click', () => Director.cycleManual());
+$('hideUI').addEventListener('click', () => document.body.classList.toggle('ui-hidden'));
+$('repRetry').addEventListener('click', () => { $('reportModal').classList.remove('show'); startMissionPrompt(G.missionIndex); });
+$('repNext').addEventListener('click', () => {
+  $('reportModal').classList.remove('show');
+  G.currentMission = null;
+  G.missionIndex++;
+  if(G.missionIndex < MISSIONS.length) setTimeout(() => startMissionPrompt(G.missionIndex), 800);
+});
+document.querySelectorAll('.approach-btns button').forEach(btn => {
+  btn.addEventListener('click', () => chooseApproach(btn.dataset.approach));
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+setupScene();
+buildWorld();
+setupInput();
+animate();
+</script>
+</body>
+</html>
