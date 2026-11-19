@@ -138,7 +138,7 @@ body.ui-hidden #showUI{display:block}
 <div id="notice"></div>
 <div id="city23">🌴 LEONIDA · <span id="weather23">DIA · CÉU LIMPO</span></div>
 
-<dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição do jogador" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
+<dialog id="mapDialog" aria-labelledby="mapTitle"><h2 id="mapTitle">Mapa de atividades</h2><button id="mapClose">Fechar</button><input id="mapQuery" type="search" aria-label="Pesquisar atividades" placeholder="Pesquisar atividades"><select aria-label="Categoria" id="mapGroup"><option value="">Todas as categorias</option></select><select aria-label="Ordenação" id="mapOrder"><option value="name">Nome (A–Z)</option><option value="near">Mais perto</option></select><p>Marca um destino no simulador ou explora os mapas da comunidade ↗.</p><svg id="leonidaAtlas" viewBox="285 155 1100 1760" role="img" aria-label="Mapa esquemático de Leonida, estradas e posição do jogador" style="width:100%;height:230px;background:#197c91"></svg><details id="catalog"><summary>Guia de Leonida · progresso de exploração</summary><p>Contagens de referência do GTABase. Regista manualmente as descobertas neste navegador.</p><select id="guideGroup" aria-label="Secção do guia"><option value="">Todas as secções</option></select><input id="guideQuery" type="search" aria-label="Pesquisar no guia" placeholder="Pesquisar no guia"><output id="guideTotal"></output><ul id="guideRows"></ul><button id="guideReset" type="button">Reiniciar progresso</button> <a href="https://www.gtabase.com/es/gta-6/mapa/" target="_blank" rel="noopener noreferrer">Mapa interativo do GTABase ↗</a></details><ul id="mapList"></ul><a href="https://gta6maps.com/maps" target="_blank" rel="noopener noreferrer">Todos os mapas da comunidade ↗</a></dialog><div id="controls"><button id="modeSwitch"></button><button id="openMap">🗺 Mapa <span id="routeReadout"></span></button>
   <button id="pause">⏸ PAUSA</button>
   <button class="primary" id="camera">🎥 CÂMARA</button>
   <button id="speed">⏩ 1×</button>
@@ -971,7 +971,7 @@ function spawnEnemiesAt(x, z, count){
 /* ============ INPUT ============ */
 function setupInput(){
   document.addEventListener('keydown', e => {
-    if($('mapDialog').open)return;
+    if(livingCity || $('mapDialog').open)return;
     G.keys[e.key.toLowerCase()] = true;
     if(!G.started) return;
     if(e.key === 'Tab'){ e.preventDefault(); switchCharacter(); }
@@ -986,7 +986,7 @@ function setupInput(){
   });
   document.addEventListener('keyup', e => { G.keys[e.key.toLowerCase()] = false; });
   document.addEventListener('mousedown', e => {
-    if(!G.started || G.paused || e.target!==G.renderer.domElement) return;
+    if(livingCity || !G.started || G.paused || e.target!==G.renderer.domElement) return;
     if(e.button === 0){ G.mouseDown = true; attack(); }
     if(e.button === 2) G.aiming = true;
   });
@@ -1001,7 +1001,7 @@ function setupInput(){
   });
   document.addEventListener('contextmenu', e => e.preventDefault());
   const canvas = G.renderer.domElement;
-  canvas.addEventListener('click', () => { if(G.started && !G.pointerLock) canvas.requestPointerLock(); });
+  canvas.addEventListener('click', () => { if(!livingCity && G.started && !G.pointerLock) canvas.requestPointerLock(); });
   document.addEventListener('pointerlockchange', () => { G.pointerLock = document.pointerLockElement === canvas; });
 }
 
@@ -1578,7 +1578,7 @@ function setCameraMode(mode){
 function cameraControls(e){
   if($('mapDialog').open || !G.started || G.paused || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if(e.code==='KeyC') setCameraMode((coverage.mode+1)%coverage.names.length);
-  if(e.code==='KeyR' && coverage.room && !coverage.room.taken && G.player.position.distanceTo(new THREE.Vector3(coverage.room.x+2,0,coverage.room.z))<3){
+  if(!livingCity && e.code==='KeyR' && coverage.room && !coverage.room.taken && G.player.position.distanceTo(new THREE.Vector3(coverage.room.x+2,0,coverage.room.z))<3){
     coverage.room.taken=true;
     G.wanted=Math.min(5,G.wanted+1);
     recordOccurrence(coverage.room.name==='Banco'?'Assalto ao banco':'Pilhagem · '+coverage.room.name);
@@ -1961,6 +1961,91 @@ for(const group of new Set(mapActivities.map(a=>a[0])))$('mapGroup').add(new Opt
 $('openMap').onclick=openMap;$('mapClose').onclick=()=>$('mapDialog').close();
 for(const id of ['mapQuery','mapGroup','mapOrder'])$(id).addEventListener('input',refreshMap);
 
+
+const livingCity=new URLSearchParams(location.search).get('modo')!=='manual';
+const residents=[];
+function sidewalkAt(group){
+  const p=group.position, near=streetNear(p.x,p.z,paths);
+  return {group,edge:near.e,along:near.t,speed:1.7};
+}
+function plannedTrip(car){
+  const first=car.edge, queue=[first.b], previous=new Map([[String(first.b),null]]);
+  for(let i=0;i<queue.length;i++){
+    for(const edge of junctions.get('v'+queue[i])||[]){
+      const key=String(edge.b);
+      if(previous.has(key))continue;
+      previous.set(key,edge);queue.push(edge.b);
+    }
+  }
+  const destinations=mapActivities.filter(a=>a[1] && Number.isFinite(a[2]) && Number.isFinite(a[3]));
+  const choice=destinations[Math.floor(Math.random()*destinations.length)];
+  const destination=queue.reduce((a,b)=>Math.hypot(b[0]-choice[2],b[1]-choice[3])<Math.hypot(a[0]-choice[2],a[1]-choice[3])?b:a);
+  const route=[];
+  for(let step=previous.get(String(destination));step;step=previous.get(String(step.a)))route.push(step);
+  return {route:route.reverse(),label:choice[1]};
+}
+function driveResident(person,dt){
+  const car=person.car;
+  let distance=car.speed*dt;
+  while(distance>=car.edge.len-car.along){
+    distance-=car.edge.len-car.along;
+    car.along=car.edge.len;
+    if(person.next===person.trip.route.length){
+      travel(car,0,true);person.group.position.copy(car.group.position);
+      person.walk=sidewalkAt(person.group);travel(person.walk,0,false);
+      person.group.visible=true;car.occupied=false;person.car=null;
+      if(person.group===G.player)G.currentVehicle=null;
+      person.state='Em visita · '+person.trip.label;person.until=G.elapsed+rand(4,9);
+      return;
+    }
+    car.edge=person.trip.route[person.next++];car.along=0;
+  }
+  car.along+=distance;travel(car,0,true);car.angle=car.group.rotation.y;
+  person.group.position.copy(car.group.position);person.group.rotation.y=car.angle;
+}
+function liveResident(person,dt){
+  if(person.car){driveResident(person,dt);return;}
+  if(G.elapsed<person.until)return;
+  if(person.state!=='A caminhar'){
+    person.state='A caminhar';person.decide=G.elapsed+rand(2,6);
+  }
+  travel(person.walk,dt,false);
+  if(G.elapsed<person.decide)return;
+  person.decide=G.elapsed+rand(2,5);
+  const car=G.vehicles.find(v=>!v.occupied && v.group.position.distanceTo(person.group.position)<10);
+  if(car){
+    person.trip=plannedTrip(car);person.next=0;person.car=car;car.occupied=true;
+    person.group.visible=false;person.state='A conduzir · '+person.trip.label;
+    if(person.group===G.player)G.currentVehicle=car;
+  }else if(Math.random()<.25){
+    person.state='A descansar';person.until=G.elapsed+rand(2,5);
+  }
+}
+function liveCivil(n,dt){
+  if(G.elapsed>=(n.nextChoice||0)){
+    const close=G.policeCars.some(pc=>pc.group.position.distanceToSquared(n.group.position)<225);
+    n.state=close?'A afastar-se':Math.random()<.2?'Parado':'A caminhar';
+    n.nextChoice=G.elapsed+rand(3,10);
+  }
+  if(n.state!=='Parado')travel(n,dt*(n.state==='A afastar-se'?1.8:1),false);
+}
+function startLivingCity(){
+  $('start').style.display='none';document.body.classList.add('playing');G.started=true;
+  createPlayer();
+  const partner=makeHuman({skin:0xb88a6a,shirt:0xff3da0,pants:0x242737});
+  G.scene.add(partner);
+  for(const [i,group] of [G.player,partner].entries()){
+    group.position.copy(G.vehicles[i].group.position);
+    const walk=sidewalkAt(group);travel(walk,0,false);
+    residents.push({group,walk,name:i?'Lucia':'Jason',state:'A caminhar',until:0,decide:0});
+  }
+  for(const i of [2,5]){
+    const v=G.vehicles[i];spawnPoliceCar(v.group.position.x,v.group.position.z);
+    Object.assign(G.policeCars[G.policeCars.length-1],{edge:v.edge,along:v.along,speed:6});
+  }
+  G.keys={};recordOccurrence('Cidade em direto');
+}
+
 function animate(){
   requestAnimationFrame(animate);
   const rawDt = Math.min(G.clock.getDelta(), 0.05);
@@ -1977,15 +2062,19 @@ function animate(){
     }
     if(G.attackCooldown > 0) G.attackCooldown -= dt;
 
-    updatePlayerMovement(dt);
+    if(livingCity){
+      for(const person of residents)liveResident(person,dt);
+      G.dayNightTarget=(1-Math.cos(G.elapsed*Math.PI/150))/2;
+    }else updatePlayerMovement(dt);
     updateEnemies(dt, G.elapsed);
-    updatePoliceChase(dt);
+    if(livingCity){for(const pc of G.policeCars)travel(pc,dt,true);}else updatePoliceChase(dt);
     for(const car of G.vehicles)if(!car.occupied)travel(car,dt,true);
-    for(const npc of G.npcs)if(!npc.filming)travel(npc,dt,false);
+    for(const npc of G.npcs)if(livingCity)liveCivil(npc,dt);else if(!npc.filming)travel(npc,dt,false);
     updateWildlife(G.elapsed);
     updateHelicopters(G.elapsed);
     updateWater(G.elapsed);
     updateCoverage(rawDt);
+    if(livingCity)$('coverageState').textContent=residents.map(p=>p.name+' · '+p.state).join(' | ');
     updateRoute();
     updateHUD();
     tickMission(dt);
@@ -1998,14 +2087,14 @@ function animate(){
     }
     if(G.scene.userData.gym) G.scene.userData.gym.ring.rotation.y += dt*0.4;
 
-    if(!G.missionRunning && !G.currentMission && !$('approachModal').classList.contains('show')){
+    if(!livingCity && !G.missionRunning && !G.currentMission && !$('approachModal').classList.contains('show')){
       const mm = G.scene.userData.missionMarkers?.[0];
       if(mm && dist2D(G.player.position.x, G.player.position.z, mm.x, mm.z) < 4){
         startMissionPrompt(G.missionIndex);
       }
     }
 
-    if(G.enemies.filter(e => e.alive).length < 2 && !G.currentMission){
+    if(!livingCity && G.enemies.filter(e => e.alive).length < 2 && !G.currentMission){
       for(let i=0;i<3;i++) spawnEnemy(-40 + rand(-20,20), -100 + rand(-50,50));
     }
     G.health = Math.min(G.maxHealth, G.health + 1.5*dt);
@@ -2265,6 +2354,9 @@ setupScene();
 buildLeonida();
 createCoverage();
 setupInput();
+$('modeSwitch').textContent=livingCity?'Jogar manualmente':'Observar cidade';
+$('modeSwitch').onclick=()=>{const url=new URL(location.href);url.searchParams.set('modo',livingCity?'manual':'auto');location.assign(url);};
+if(livingCity)startLivingCity();
 animate();
 </script>
 </body>
